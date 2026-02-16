@@ -1,42 +1,68 @@
 <?php
-// /ai/placement/quizgen/classes/placement.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace aiplacement_quizgen;
 
-use core_ai\placement;
+use core_ai\placement as base_placement;
 
-class placement extends placement {
-    
-    public function get_name(): string {
-        return 'quizgen';
-    }
-    
-    public function get_title(): string {
-        return get_string('pluginname', 'aiplacement_quizgen');
-    }
-    
-    public function get_actions(): array {
+/**
+ * Class placement.
+ *
+ * @package    aiplacement_quizgen
+ * @copyright  2025
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class placement extends base_placement {
+
+    /**
+     * Get the list of actions that this placement uses.
+     *
+     * @return array An array of action class names.
+     */
+    #[\Override]
+    public static function get_action_list(): array {
         return [
-            'generate_quiz',      // Основное действие
-            'generate_single',    // Перегенерировать вопрос
-            'improve_question'    // Улучшить формулировку
+            \core_ai\aiactions\generate_text::class,
         ];
     }
-    
-    public function is_action_available(string $action, \context $context): bool {
-        return has_capability('quizgen/generate', $context);
-    }
-    
+
     /**
-     * Получить промпт для генерации теста
+     * Get placement name.
+     *
+     * @return string
+     */
+    #[\Override]
+    public static function get_name(): string {
+        return 'quizgen';
+    }
+
+    /**
+     * Get prompt for quiz generation.
+     *
+     * @param string $text
+     * @param array $params
+     * @return string
      */
     public function get_quiz_prompt(string $text, array $params = []): string {
         $count = $params['count'] ?? 5;
         $type = $params['type'] ?? 'multichoice';
         $difficulty = $params['difficulty'] ?? 'medium';
         $language = $params['language'] ?? 'ru';
-        
-        // Карта типов вопросов
+
+        // Type descriptions.
         $type_descriptions = [
             'multichoice' => 'multiple choice questions with 4 options, one correct answer, and an explanation',
             'truefalse' => 'true/false statements with explanation',
@@ -45,24 +71,24 @@ class placement extends placement {
             'essay' => 'essay questions with detailed rubric',
             'combined' => 'mix of different question types'
         ];
-        
+
         $type_desc = $type_descriptions[$type] ?? $type_descriptions['multichoice'];
-        
+
         $difficulty_desc = [
             'easy' => 'basic, factual knowledge',
             'medium' => 'application and comprehension',
             'hard' => 'analysis, synthesis, and evaluation'
-        ][$difficulty];
-        
+        ][$difficulty] ?? 'medium';
+
         $language_names = ['ru' => 'Russian', 'en' => 'English'];
         $lang = $language_names[$language] ?? 'Russian';
-        
+
         $prompt = "Generate {$count} {$type_desc} based on this text.
         Difficulty: {$difficulty_desc}.
         Language: {$lang}.
-        
+
         IMPORTANT: Return ONLY valid JSON array. NO other text, NO markdown, NO comments.
-        
+
         [
             {
                 \"question\": \"Question text\",
@@ -73,9 +99,9 @@ class placement extends placement {
                 \"tags\": [\"topic1\", \"topic2\"]
             }
         ]
-        
+
         Text: {$text}";
-        
+
         return $prompt;
     }
 }

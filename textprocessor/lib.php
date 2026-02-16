@@ -1,61 +1,23 @@
 <?php
-// /ai/placement/textprocessor/lib.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 defined('MOODLE_INTERNAL') || die();
 
-/**
- * Добавляем кнопку в TinyMCE
- */
+// Legacy callback - kept for compatibility but should not be used.
+// Use hooks in db/hooks.php instead.
 function textprocessor_tiny_plugin_definitions() {
-    return [
-        'textprocessor' => [
-            'title' => 'AI Text Processor',
-            'icon' => 'processor',
-            'buttons' => [
-                'textprocessor_btn' => [
-                    'text' => '✨ AI',
-                    'action' => 'openProcessorDialog'
-                ]
-            ]
-        ]
-    ];
-}
-
-/**
- * Добавляем кнопку в Atto
- */
-function textprocessor_atto_plugin_definitions() {
-    return [
-        'textprocessor' => [
-            'title' => 'AI Text Processor',
-            'button' => [
-                'icon' => 'e/ai',
-                'iconComponent' => 'core',
-            ],
-            'menu' => [
-                ['text' => 'В HTML', 'action' => 'toHtml'],
-                ['text' => 'Из Markdown', 'action' => 'fromMarkdown'],
-                ['text' => 'В таблицу', 'action' => 'toTable'],
-                ['text' => 'Очистить HTML', 'action' => 'cleanHtml']
-            ]
-        ]
-    ];
-}
-
-/**
- * Добавляем пункт в контекстное меню
- */
-function textprocessor_before_footer() {
-    global $PAGE;
-    
-    static $initialized = false;
-    if ($initialized) return;
-    
-    $PAGE->requires->js_call_amd('aiplacement_textprocessor/editor', 'init', [
-        ['contextid' => $PAGE->context->id]
-    ]);
-    
-    $PAGE->requires->css('/ai/placement/textprocessor/styles.css');
-    
-    $initialized = true;
+    // Deprecated - now handled by hooks.
 }

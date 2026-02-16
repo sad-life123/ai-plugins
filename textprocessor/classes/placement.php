@@ -1,73 +1,51 @@
 <?php
-// /ai/placement/textprocessor/classes/placement.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace aiplacement_textprocessor;
 
 use core_ai\placement as base_placement;
 
+/**
+ * Class placement.
+ *
+ * @package    aiplacement_textprocessor
+ * @copyright  2025
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
 class placement extends base_placement {
-    
+
     /**
-     * Уникальное имя плагина
+     * Get the actions that this placement supports.
+     *
+     * @return array An array of action class names.
      */
-    public static function get_name(): string {
-        return 'textprocessor';
-    }
-    
-    /**
-     * Человеко-читаемое название
-     */
-    public static function get_title(): string {
-        return get_string('pluginname', 'aiplacement_textprocessor');
-    }
-    
-    /**
-     * Простой список действий
-     */
-    public static function get_actions(): array {
-        return array_keys(actions::get_all());
-    }
-    
-    /**
-     * Список действий с классами
-     */
+    #[\Override]
     public static function get_action_list(): array {
-        $actions = actions::get_all();
-        $list = [];
-        
-        foreach (array_keys($actions) as $action) {
-            $list[$action] = 'aiplacement_textprocessor\\action\\' . $action;
-        }
-        
-        return $list;
-    }
-    
-    /**
-     * ⚠️ КЛЮЧЕВОЙ МЕТОД - связывает действия с провайдером
-     */
-    public static function get_provider_actions(): array {
         return [
-            'to_html' => 'generate_text',
-            'from_markdown' => 'generate_text',
-            'to_table' => 'generate_text',
-            'clean_html' => 'generate_text'
+            \core_ai\aiactions\generate_text::class,
         ];
     }
-    
+
     /**
-     * Проверка доступности действия
+     * Get placement name.
+     *
+     * @return string
      */
-    public static function is_action_available(string $action, \context $context): bool {
-        if (!isloggedin()) {
-            return false;
-        }
-        return has_capability('textprocessor/use', $context);
-    }
-    
-    /**
-     * ⚠️ ВАЖНО: указываем, что действия используют AI
-     */
-    public static function is_action_ai_provider_based(string $action): bool {
-        return true; // Все действия используют AI провайдера
+    #[\Override]
+    public static function get_name(): string {
+        return 'textprocessor';
     }
 }

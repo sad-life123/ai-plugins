@@ -1,6 +1,7 @@
 /* /ai/placement/quizgen/styles.css */
 
 .quizgen-container {
+    display: none;
     max-width: 1200px;
     margin: 20px auto;
     padding: 30px;

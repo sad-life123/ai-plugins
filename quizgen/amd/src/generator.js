@@ -3,11 +3,14 @@
 define(['core/ajax', 'core/str', 'core/notification', 'core/templates'], 
     function(Ajax, Str, Notification, Templates) {
     
+    var quizgenInstance = null;
+    
     class QuizGenerator {
         
         constructor(containerId, config = {}) {
             this.container = document.getElementById(containerId);
             this.config = config;
+            this.ollamaConfigured = config.ollama_configured !== false;
             this.questions = [];
             this.selectedQuestions = new Set();
             
@@ -15,7 +18,10 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
         }
         
         init() {
-            if (!this.container) return;
+            if (!this.container) {
+                console.error('QuizGen container not found:', containerId);
+                return;
+            }
             
             this.form = this.container.querySelector('.quizgen-form');
             this.textarea = this.container.querySelector('.quizgen-textarea');
@@ -30,6 +36,20 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
             
             this.bindEvents();
             this.loadDefaults();
+            
+            // Show warning if Ollama is not configured.
+            if (!this.ollamaConfigured) {
+                this.generateBtn.disabled = true;
+                if (this.questionsGrid) {
+                    this.questionsGrid.innerHTML = `
+                        <div class="alert alert-warning">
+                            ⚠️ Ollama is not configured. Please configure Ollama in plugin settings to generate questions.
+                        </div>
+                    `;
+                }
+            }
+            
+            console.log('QuizGen initialized, container:', this.container.id, 'Ollama configured:', this.ollamaConfigured);
         }
         
         bindEvents() {
@@ -54,6 +74,12 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
         }
         
         async generate() {
+            // Check if Ollama is configured.
+            if (!this.ollamaConfigured) {
+                Notification.alert('Ollama not configured', 'Please configure Ollama in plugin settings to generate questions.');
+                return;
+            }
+            
             const text = this.textarea.value.trim();
             if (!text) {
                 Notification.alert('Ошибка', 'Введите текст для генерации теста');
@@ -75,7 +101,7 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
             
             try {
                 const response = await Ajax.call([{
-                    methodname: 'quizgen_generate',
+                    methodname: 'aiplacement_quizgen_generate',
                     args: params
                 }])[0];
                 
@@ -95,11 +121,14 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
                 
             } catch (error) {
                 Notification.exception(error);
-                this.questionsGrid.innerHTML = `
-                    <div class="alert alert-danger">
-                        ❌ Ошибка генерации: ${error.message}
-                    </div>
-                `;
+                if (this.questionsGrid) {
+                    this.questionsGrid.innerHTML = `
+                        <div class="alert alert-danger">
+                            ❌ Ошибка генерации: ${error.message}
+                        </div>
+                    `;
+                }
+                Notification.alert('Ошибка генерации', error.message);
             } finally {
                 this.setLoading(false);
             }
@@ -178,7 +207,7 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
             
             try {
                 const response = await Ajax.call([{
-                    methodname: 'quizgen_save_to_bank',
+                    methodname: 'aiplacement_quizgen_save_to_bank',
                     args: {
                         questions: JSON.stringify(questionsToSave),
                         courseid: this.config.courseid || 0
@@ -206,7 +235,7 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
         async saveQuestion(question) {
             try {
                 const response = await Ajax.call([{
-                    methodname: 'quizgen_save_to_bank',
+                    methodname: 'aiplacement_quizgen_save_to_bank',
                     args: {
                         questions: JSON.stringify([question]),
                         courseid: this.config.courseid || 0
@@ -270,11 +299,52 @@ define(['core/ajax', 'core/str', 'core/notification', 'core/templates'],
                 if (this.difficultySelect) this.difficultySelect.value = this.config.defaults.difficulty || 'medium';
             }
         }
+        
+        show() {
+            if (this.container) {
+                this.container.style.display = 'block';
+            }
+        }
+        
+        hide() {
+            if (this.container) {
+                this.container.style.display = 'none';
+            }
+        }
+        
+        toggle() {
+            if (this.container) {
+                var currentDisplay = this.container.style.display;
+                this.container.style.display = (currentDisplay === 'none' || currentDisplay === '') ? 'block' : 'none';
+            }
+        }
     }
     
     return {
         init: function(containerId, config) {
-            return new QuizGenerator(containerId, config);
+            quizgenInstance = new QuizGenerator(containerId, config);
+            
+            // Set up toggle handler for the action button
+            setTimeout(function() {
+                var toggleBtn = document.querySelector('.aiplacement-quizgen-action button');
+                if (toggleBtn && quizgenInstance) {
+                    toggleBtn.onclick = function(e) {
+                        e.preventDefault();
+                        quizgenInstance.toggle();
+                    };
+                    console.log('QuizGen toggle button handler attached');
+                }
+            }, 500);
+            
+            return quizgenInstance;
+        },
+        open: function() {
+            if (quizgenInstance) {
+                quizgenInstance.toggle();
+            }
+        },
+        getInstance: function() {
+            return quizgenInstance;
         }
     };
 });

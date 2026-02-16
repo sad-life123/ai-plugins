@@ -32,7 +32,7 @@ class save_to_bank extends external_api {
         
         $context = $courseid ? \context_course::instance($courseid) : \context_system::instance();
         self::validate_context($context);
-        require_capability('quizgen/save', $context);
+        require_capability('aiplacement/quizgen:save', $context);
         
         $questions_array = json_decode($params['questions'], true);
         
@@ -54,3 +54,7 @@ class save_to_bank extends external_api {
         ]);
     }
 }
+
+
+
+    

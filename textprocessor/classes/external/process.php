@@ -32,7 +32,7 @@ class process extends external_api {
         
         $context = $contextid ? \context::instance_by_id($contextid) : \context_user::instance($USER->id);
         self::validate_context($context);
-        require_capability('textprocessor/use', $context);
+        require_capability('aiplacement/textprocessor:use', $context);
         
         $processor = new processor();
         return $processor->process($params['text'], $params['action'], $context);

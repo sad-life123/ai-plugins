@@ -1,21 +1,102 @@
 <?php
-// /ai/placement/quizgen/classes/generator.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 namespace aiplacement_quizgen;
 
 defined('MOODLE_INTERNAL') || die();
 
 class generator {
-    
+
     private $ollama_url;
     private $model;
     private $placement;
-    
+
     public function __construct() {
-        $this->ollama_url = get_config('quizgen', 'ollama_url') ?: 'http://localhost:11434';
-        $this->ollama_url = rtrim($this->ollama_url, '/');
-        $this->model = get_config('quizgen', 'ollama_model') ?: 'qwen2.5:7b';
+        // Try to get Ollama URL from provider first, then fallback to local settings.
+        $this->ollama_url = $this->get_ollama_url();
+        $this->model = $this->get_ollama_model();
         $this->placement = new placement();
+    }
+
+    /**
+     * Get Ollama URL from provider or fallback to local settings.
+     *
+     * @return string
+     */
+    private function get_ollama_url(): string {
+        global $DB;
+
+        try {
+            // Check if AI plugin is installed.
+            if (!$DB->get_manager()->table_exists('ai_provider_instances')) {
+                throw new \Exception('AI table not found');
+            }
+
+            // Try to get from aiprovider_ollama instance.
+            $provider = $DB->get_record('ai_provider_instances', [
+                'provider' => 'aiprovider_ollama',
+                'enabled' => 1
+            ], 'config');
+
+            if (!empty($provider->config)) {
+                $config = json_decode($provider->config, true);
+                if (!empty($config['endpoint'])) {
+                    return rtrim($config['endpoint'], '/');
+                }
+            }
+        } catch (\Exception $e) {
+            // AI plugin not installed, use fallback.
+        }
+
+        // Fallback to local settings.
+        return get_config('aiplacement_quizgen', 'ollama_url') ?: 'http://localhost:11434';
+    }
+
+    /**
+     * Get Ollama model from provider or fallback to local settings.
+     *
+     * @return string
+     */
+    private function get_ollama_model(): string {
+        global $DB;
+
+        try {
+            // Check if AI plugin is installed.
+            if (!$DB->get_manager()->table_exists('ai_provider_instances')) {
+                throw new \Exception('AI table not found');
+            }
+
+            // Try to get from aiprovider_ollama instance.
+            $provider = $DB->get_record('ai_provider_instances', [
+                'provider' => 'aiprovider_ollama',
+                'enabled' => 1
+            ], 'actionconfig');
+
+            if (!empty($provider->actionconfig)) {
+                $config = json_decode($provider->actionconfig, true);
+                if (!empty($config['generate_text']['model'])) {
+                    return $config['generate_text']['model'];
+                }
+            }
+        } catch (\Exception $e) {
+            // AI plugin not installed, use fallback.
+        }
+
+        // Fallback to local settings.
+        return get_config('aiplacement_quizgen', 'ollama_model') ?: 'qwen2.5:7b';
     }
     
     /**

@@ -1,16 +1,27 @@
 <?php
-// /ai/placement/coursechat/classes/external/chat_api.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace aiplacement_coursechat\external;
-
-defined('MOODLE_INTERNAL') || die();
+namespace aiplacement_chat\external;
 
 use core_external\external_api;
 use core_external\external_function_parameters;
 use core_external\external_value;
 use core_external\external_single_structure;
-use core_external\external_multiple_structure;
-use aiplacement_coursechat\chat;
+use aiplacement_chat\chat;
+use aiplacement_chat\utils;
 
 class chat_api extends external_api {
     
@@ -39,7 +50,7 @@ class chat_api extends external_api {
         
         $context = \context_course::instance($courseid);
         self::validate_context($context);
-        require_capability('coursechat/use', $context);
+        require_capability('aiplacement/chat:use', $context);
         
         $history_array = json_decode($params['history'], true) ?: [];
         

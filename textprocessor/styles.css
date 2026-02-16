@@ -1,6 +1,7 @@
 /* /ai/placement/textprocessor/styles.css */
 
 .textprocessor-container {
+    display: none;
     padding: 20px;
     background: white;
     border-radius: 8px;

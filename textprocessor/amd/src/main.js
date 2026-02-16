@@ -2,18 +2,24 @@
 
 define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
     
+    var textprocessorInstance = null;
+    
     /**
      * Класс для UI текст процессора
      */
     var TextProcessorUI = function(elementId, config) {
         this.container = document.getElementById(elementId);
         this.config = config || {};
+        this.ollamaConfigured = config.ollama_configured !== false;
         this.currentAction = 'to_html';
         this.init();
     };
 
     TextProcessorUI.prototype.init = function() {
-        if (!this.container) return;
+        if (!this.container) {
+            console.error('TextProcessor container not found:', elementId);
+            return;
+        }
         
         this.input = this.container.querySelector('.textprocessor-input');
         this.output = this.container.querySelector('.textprocessor-output');
@@ -24,6 +30,14 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         this.actionBtns = this.container.querySelectorAll('.textprocessor-action-btn');
         
         this.bindEvents();
+        
+        // Show warning if Ollama is not configured.
+        if (!this.ollamaConfigured && this.processBtn) {
+            this.processBtn.disabled = true;
+            this.processBtn.title = 'Ollama is not configured. Please configure Ollama in plugin settings.';
+        }
+        
+        console.log('TextProcessor initialized, container:', this.container.id, 'Ollama configured:', this.ollamaConfigured);
     };
 
     TextProcessorUI.prototype.bindEvents = function() {
@@ -73,6 +87,12 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
     };
 
     TextProcessorUI.prototype.process = function() {
+        // Check if Ollama is configured.
+        if (!this.ollamaConfigured) {
+            Notification.alert('Ollama not configured', 'Please configure Ollama in plugin settings to process text.');
+            return;
+        }
+        
         var self = this;
         var text = this.input ? this.input.value.trim() : '';
         
@@ -84,13 +104,13 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
         this.setLoading(true);
         
         Ajax.call([{
-            methodname: 'textprocessor_process',
+            methodname: 'aiplacement_textprocessor_process',
             args: {
                 text: text,
                 action: this.currentAction,
                 contextid: this.config.contextid || 0
             }
-        }])[0].then(function(response) {
+        }]).then(function(response) {
             if (response.success) {
                 if (self.output) {
                     self.output.value = response.html;
@@ -106,6 +126,7 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             if (self.output) {
                 self.output.value = 'Ошибка: ' + error.message;
             }
+            Notification.alert('Ошибка', error.message);
         }).finally(function() {
             self.setLoading(false);
         });
@@ -165,10 +186,51 @@ define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
             this.processBtn.innerHTML = '✨ Обработать';
         }
     };
+    
+    TextProcessorUI.prototype.show = function() {
+        if (this.container) {
+            this.container.style.display = 'block';
+        }
+    };
+    
+    TextProcessorUI.prototype.hide = function() {
+        if (this.container) {
+            this.container.style.display = 'none';
+        }
+    };
+    
+    TextProcessorUI.prototype.toggle = function() {
+        if (this.container) {
+            var currentDisplay = this.container.style.display;
+            this.container.style.display = (currentDisplay === 'none' || currentDisplay === '') ? 'block' : 'none';
+        }
+    };
 
     return {
         init: function(elementId, config) {
-            return new TextProcessorUI(elementId, config);
+            textprocessorInstance = new TextProcessorUI(elementId, config);
+            
+            // Set up toggle handler for the action button
+            setTimeout(function() {
+                var toggleBtn = document.querySelector('.aiplacement-textprocessor-action button');
+                if (toggleBtn && textprocessorInstance) {
+                    toggleBtn.onclick = function(e) {
+                        e.preventDefault();
+                        textprocessorInstance.toggle();
+                    };
+                    console.log('TextProcessor toggle button handler attached');
+                }
+            }, 500);
+            
+            return textprocessorInstance;
+        },
+        open: function() {
+            if (textprocessorInstance) {
+                textprocessorInstance.toggle();
+            }
+        },
+        getInstance: function() {
+            return textprocessorInstance;
         }
     };
 });

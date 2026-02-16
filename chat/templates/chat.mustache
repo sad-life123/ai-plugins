@@ -1,22 +1,22 @@
 {{!
-    /ai/placement/coursechat/templates/chat.mustache
+    /ai/placement/chat/templates/chat.mustache
 }}
 <div id="coursechat-{{uniqid}}" class="coursechat-container">
     
     <div class="coursechat-header">
         <h3>
-            💬 {{#str}}chat_title, aiplacement_coursechat{{/str}}
+            💬 {{#str}}chat_title, aiplacement_chat{{/str}}
             <span class="coursechat-context-badge">
-                {{#str}}context_info, aiplacement_coursechat{{/str}}
+                {{#str}}context_info, aiplacement_chat{{/str}}
             </span>
         </h3>
         <div>
             <button class="btn btn-sm btn-outline-secondary" onclick="M.util.js_pending('coursechat-clear'); 
-                require(['aiplacement_coursechat/chat'], function(Chat) { 
+                require(['aiplacement_chat/chat'], function(Chat) { 
                     Chat.init('coursechat-{{uniqid}}', {{config}}).clearHistory(); 
                     M.util.js_complete('coursechat-clear');
                 }); return false;" 
-                title="{{#str}}clear_history, aiplacement_coursechat{{/str}}">
+                title="{{#str}}clear_history, aiplacement_chat{{/str}}">
                 🗑️
             </button>
             <button class="btn btn-sm btn-outline-secondary" onclick="
@@ -33,7 +33,7 @@
     </div>
     
     <div class="coursechat-typing" style="display: none;">
-        <span>{{#str}}typing, aiplacement_coursechat{{/str}}</span>
+        <span>{{#str}}typing, aiplacement_chat{{/str}}</span>
         <div class="typing-dots">
             <span></span>
             <span></span>
@@ -45,7 +45,7 @@
         <textarea 
             class="coursechat-input" 
             rows="1"
-            placeholder="{{#str}}input_placeholder, aiplacement_coursechat{{/str}}"></textarea>
+            placeholder="{{#str}}input_placeholder, aiplacement_chat{{/str}}"></textarea>
         <button class="coursechat-send" disabled>
             ➤
         </button>

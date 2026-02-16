@@ -40,7 +40,7 @@ class generate extends external_api {
         
         $context = $contextid ? \context::instance_by_id($contextid) : \context_user::instance($USER->id);
         self::validate_context($context);
-        require_capability('quizgen/generate', $context);
+        require_capability('aiplacement/quizgen:generate', $context);
         
         $generator = new generator();
         $result = $generator->generate_quiz($params['text'], [

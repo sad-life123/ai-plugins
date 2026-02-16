@@ -1,10 +1,10 @@
-// /ai/placement/coursechat/amd/src/widget.js
+// /ai/placement/chat/amd/src/widget.js
 
 define([
     'core/str',
     'core/notification',
     'core/templates',
-    'aiplacement_coursechat/chat'
+    'aiplacement_chat/chat'
 ], function(Str, Notification, Templates, Chat) {
     
     class ChatWidget {
@@ -55,7 +55,7 @@ define([
         openChat() {
             if (this.isOpen) return;
             
-            Templates.render('aiplacement_coursechat/chat', {
+            Templates.render('aiplacement_chat/chat', {
                 courseid: this.config.courseid,
                 contextid: this.config.contextid,
                 uniqid: Date.now()

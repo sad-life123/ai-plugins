@@ -1,57 +1,23 @@
 <?php
-// /ai/placement/quizgen/lib.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 defined('MOODLE_INTERNAL') || die();
 
-/**
- * Добавляем кнопку "Сгенерировать тест" в редактор
- */
-function quizgen_tiny_plugin_definitions() {
-    return [
-        'quizgen' => [
-            'title' => 'AI Генератор тестов',
-            'icon' => 'quiz',
-            'buttons' => [
-                'generate_quiz' => [
-                    'text' => '📝 AI Тест',
-                    'action' => 'openQuizGenerator'
-                ]
-            ]
-        ]
-    ];
-}
-
-/**
- * Добавляем пункт в меню курса
- */
-function quizgen_extend_navigation_course($navigation, $course, $context) {
-    global $PAGE;
-    
-    if (has_capability('quizgen/generate', $context)) {
-        $url = new moodle_url('/ai/placement/quizgen/index.php', ['courseid' => $course->id]);
-        $navigation->add(
-            '📝 AI Генератор тестов',
-            $url,
-            navigation_node::TYPE_SETTING,
-            null,
-            'quizgen',
-            new pix_icon('i/questions', '')
-        );
-    }
-}
-
-/**
- * Обработка перед удалением курса
- */
-function quizgen_pre_course_delete($course) {
-    // Очищаем сгенерированные вопросы
-    $category = question_get_default_category($course->id);
-    if ($category) {
-        $questions = get_questions_in_category($category->id);
-        foreach ($questions as $question) {
-            if (strpos($question->name, '[AI]') === 0) {
-                question_delete_question($question->id);
-            }
-        }
-    }
+// Legacy callback - kept for compatibility but should not be used.
+// Use hooks in db/hooks.php instead.
+function aiplacement_quizgen_tiny_plugin_definitions() {
+    // Deprecated - now handled by hooks.
 }

@@ -1,48 +1,79 @@
 <?php
-// /ai/placement/coursechat/classes/placement.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-namespace aiplacement_coursechat;
+namespace aiplacement_chat;
 
-use core_ai\placement;
+use core_ai\placement as base_placement;
 
-class placement extends placement {
-    
-    public function get_name(): string {
-        return 'coursechat';
-    }
-    
-    public function get_title(): string {
-        return get_string('pluginname', 'aiplacement_coursechat');
-    }
-    
-    public function get_actions(): array {
+/**
+ * Class placement.
+ *
+ * @package    aiplacement_chat
+ * @copyright  2025
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+class placement extends base_placement {
+
+    /**
+     * Get the list of actions that this placement uses.
+     *
+     * @return array An array of action class names.
+     */
+    #[\Override]
+    public static function get_action_list(): array {
         return [
-            'chat_message'  // Кастомное действие для чата
+            \core_ai\aiactions\generate_text::class,
         ];
     }
-    
-    public function is_action_available(string $action, \context $context): bool {
-        return has_capability('coursechat/use', $context);
-    }
-    
+
     /**
-     * Системный промпт для Ollama с контекстом курса
+     * Get placement name.
+     *
+     * @return string
      */
-    public function get_system_prompt(\context $context, int $userid = 0): string {
-        global $DB;
-        
-        $courseid = $context->instanceid;
-        $course = $DB->get_record('course', ['id' => $courseid]);
-        
-        $prompt = get_string('system_prompt', 'aiplacement_coursechat');
-        
-        // Собираем контекст
-        $context_collector = new context();
-        $course_context = $context_collector->get_course_context($courseid, $userid);
-        
-        $prompt = str_replace('{course_context}', $course_context, $prompt);
-        $prompt = str_replace('{course_name}', $course->fullname, $prompt);
-        
-        return $prompt;
+    #[\Override]
+    public static function get_name(): string {
+        return 'chat';
+    }
+
+    /**
+     * Get system prompt for chat context.
+     *
+     * @param \context $context
+     * @param int $userid
+     * @return string
+     */
+    public function get_system_prompt(\context $context, int $userid): string {
+        $contextobj = new context();
+        $coursecontext = $context->get_course_context();
+        $courseid = $coursecontext->id;
+
+        $context_text = $contextobj->get_course_context($courseid, $userid);
+
+        return "Ты - AI ассистент курса в Moodle. Ты помогаешь студентам с их вопросами по курсу.
+
+КОНТЕКСТ КУРСА:
+{$context_text}
+
+Правила:
+1. Отвечай на русском языке (если пользователь пишет на русском)
+2. Будь кратким и полезным
+3. Если не знаешь ответ - честно скажи об этом
+4. Используй контекст курса для релевантных ответов
+
+Отвечай на вопрос студента:";
     }
 }

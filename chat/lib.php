@@ -1,51 +1,24 @@
 <?php
-// /ai/placement/coursechat/lib.php
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 defined('MOODLE_INTERNAL') || die();
 
-/**
- * Добавляем виджет чата на все страницы курса
- */
-function coursechat_before_footer() {
-    global $PAGE, $COURSE, $USER;
-    
-    // Только в контексте курса
-    if (empty($COURSE->id) || $COURSE->id == SITEID) {
-        return;
-    }
-    
-    // Проверка прав
-    $context = context_course::instance($COURSE->id);
-    if (!has_capability('coursechat/use', $context)) {
-        return;
-    }
-    
-    // Подключаем виджет
-    $PAGE->requires->js_call_amd('aiplacement_coursechat/widget', 'init', [
-        [
-            'courseid' => $COURSE->id,
-            'userid' => $USER->id,
-            'contextid' => $context->id
-        ]
-    ]);
-    
-    $PAGE->requires->css('/ai/placement/coursechat/styles.css');
-}
-
-/**
- * TinyMCE интеграция (кнопка AI в редакторе)
- */
-function coursechat_tiny_plugin_definitions() {
-    return [
-        'coursechat' => [
-            'title' => 'AI Помощник курса',
-            'icon' => 'chat',
-            'buttons' => [
-                'ai_chat' => [
-                    'text' => '💬 AI',
-                    'action' => 'openCourseChat'
-                ]
-            ]
-        ]
-    ];
+// Legacy callback - kept for compatibility but should not be used.
+// Use hooks in db/hooks.php instead.
+function aiplacement_chat_before_footer() {
+    // Deprecated - now handled by hooks.
+    // Keeping for backwards compatibility.
 }
