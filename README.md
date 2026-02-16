@@ -8,8 +8,8 @@ basic question generator based on IDK ...
 must generate something edited based on (word,pdf ideally). Something edited includes bald text, sizes, etc... (fixed in 1 prompt edit yeah)
 
 next fixes:
--functionality of all 3
--retarded ai ui.
+- functionality of all 3
+- retarded ai ui.
 - (?) extension of basic ai core gui, not a new one for each plugin.
--some request-based additions.
+- some request-based additions.
 
