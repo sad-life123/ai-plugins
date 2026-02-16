@@ -1,0 +1,46 @@
+{{!
+    /ai/placement/textprocessor/templates/dialog.mustache
+}}
+<div id="textprocessor-ui-{{uniqid}}" class="textprocessor-container">
+    
+    <div class="textprocessor-toolbar">
+        <button class="textprocessor-btn textprocessor-action-btn active" data-action="to_html">
+            📄 To HTML
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="from_markdown">
+            🔗 From Markdown
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="to_table">
+            📊 To table
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="clean_html">
+            ✨ Clean
+        </button>
+    </div>
+    
+    <textarea 
+        class="textprocessor-input" 
+        rows="6"
+        placeholder="Enter text to process...">{{initialtext}}</textarea>
+    
+    <div style="display: flex; gap: 8px; margin-bottom: 15px;">
+        <button class="textprocessor-btn textprocessor-process-btn" style="flex: 1;">
+            ✨ Process
+        </button>
+        <button class="textprocessor-btn textprocessor-copy-btn">
+            📋 Copy
+        </button>
+        <button class="textprocessor-btn textprocessor-insert-btn">
+            📝 Insert
+        </button>
+    </div>
+    
+    <textarea 
+        class="textprocessor-output" 
+        rows="6"
+        readonly
+        placeholder="Result will appear here..."></textarea>
+    
+    <div class="textprocessor-preview"></div>
+    
+</div>

@@ -1,0 +1,46 @@
+{{!
+    /ai/placement/textprocessor/templates/ui.mustache
+}}
+<div id="textprocessor-ui-{{uniqid}}" class="textprocessor-container">
+    
+    <div class="textprocessor-toolbar">
+        <button class="textprocessor-btn textprocessor-action-btn active" data-action="to_html">
+            📄 В HTML
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="from_markdown">
+            🔗 Из Markdown
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="to_table">
+            📊 В таблицу
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="clean_html">
+            ✨ Очистить
+        </button>
+    </div>
+    
+    <textarea 
+        class="textprocessor-input" 
+        rows="10"
+        placeholder="Введите текст...">{{initialtext}}</textarea>
+    
+    <div style="display: flex; gap: 8px; margin: 15px 0;">
+        <button class="textprocessor-btn textprocessor-process-btn" style="flex: 1;">
+            ✨ Обработать
+        </button>
+        <button class="textprocessor-btn textprocessor-copy-btn">
+            📋 Копировать
+        </button>
+        <button class="textprocessor-btn textprocessor-insert-btn">
+            📝 Вставить
+        </button>
+    </div>
+    
+    <textarea 
+        class="textprocessor-output" 
+        rows="10"
+        readonly
+        placeholder="Результат..."></textarea>
+    
+    <div class="textprocessor-preview"></div>
+    
+</div>

@@ -1,0 +1,63 @@
+{{!
+    /ai/placement/quizgen/templates/question_preview.mustache
+}}
+{{#questions}}
+<div class="quizgen-question-card" data-question-index="{{index}}">
+    
+    <div class="quizgen-question-header">
+        <div>
+            <span class="quizgen-question-type">{{type_name}}</span>
+            {{#tags}}
+            <span class="badge badge-secondary">{{.}}</span>
+            {{/tags}}
+        </div>
+        <div>
+            <button class="btn btn-sm btn-outline-secondary question-select" title="Выбрать">
+                ✓
+            </button>
+        </div>
+    </div>
+    
+    <div class="quizgen-question-text">
+        {{question}}
+    </div>
+    
+    {{#options}}
+    <div class="quizgen-options">
+        {{#.}}
+        <div class="quizgen-option {{#correct}}correct{{/correct}}">
+            <span>{{@index}}</span> {{{.}}}
+        </div>
+        {{/.}}
+    </div>
+    {{/options}}
+    
+    {{#explanation}}
+    <div class="quizgen-explanation" style="display: none;">
+        <strong>Пояснение:</strong> {{.}}
+    </div>
+    {{/explanation}}
+    
+    <div class="quizgen-actions">
+        <button class="btn btn-sm btn-outline-primary show-explanation">
+            📘 Пояснение
+        </button>
+        <button class="btn btn-sm btn-outline-secondary question-regenerate">
+            🔄 Перегенерировать
+        </button>
+        <button class="btn btn-sm btn-outline-success question-save">
+            💾 Сохранить
+        </button>
+        <button class="btn btn-sm btn-outline-secondary copy-question">
+            📋 Копировать
+        </button>
+    </div>
+    
+</div>
+{{/questions}}
+
+{{^questions}}
+<div class="alert alert-info text-center" style="padding: 40px;">
+    🤖 Вопросы появятся здесь после генерации
+</div>
+{{/questions}}
