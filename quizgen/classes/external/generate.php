@@ -48,7 +48,7 @@ class generate extends external_api {
             'type' => $params['type'],
             'difficulty' => $params['difficulty'],
             'language' => $params['language']
-        ]);
+        ], $context->id, $USER->id);
         
         return $result;
     }

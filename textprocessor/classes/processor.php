@@ -18,86 +18,15 @@ namespace aiplacement_textprocessor;
 
 class processor {
 
-    private $ollama_url;
-    private $model;
-
-    public function __construct() {
-        // Try to get Ollama URL from provider first, then fallback to local settings.
-        $this->ollama_url = $this->get_ollama_url();
-        $this->model = $this->get_ollama_model();
-    }
-
-    /**
-     * Get Ollama URL from provider or fallback to local settings.
-     *
-     * @return string
-     */
-    private function get_ollama_url(): string {
-        global $DB;
-
-        try {
-            // Check if AI plugin is installed.
-            if (!$DB->get_manager()->table_exists('ai_provider_instances')) {
-                throw new \Exception('AI table not found');
-            }
-
-            // Try to get from aiprovider_ollama instance.
-            $provider = $DB->get_record('ai_provider_instances', [
-                'provider' => 'aiprovider_ollama',
-                'enabled' => 1
-            ], 'config');
-
-            if (!empty($provider->config)) {
-                $config = json_decode($provider->config, true);
-                if (!empty($config['endpoint'])) {
-                    return rtrim($config['endpoint'], '/');
-                }
-            }
-        } catch (\Exception $e) {
-            // AI plugin not installed, use fallback.
-        }
-
-        // Fallback to local settings.
-        return get_config('aiplacement_textprocessor', 'ollama_url') ?: 'http://localhost:11434';
-    }
-
-    /**
-     * Get Ollama model from provider or fallback to local settings.
-     *
-     * @return string
-     */
-    private function get_ollama_model(): string {
-        global $DB;
-
-        try {
-            // Check if AI plugin is installed.
-            if (!$DB->get_manager()->table_exists('ai_provider_instances')) {
-                throw new \Exception('AI table not found');
-            }
-
-            // Try to get from aiprovider_ollama instance.
-            $provider = $DB->get_record('ai_provider_instances', [
-                'provider' => 'aiprovider_ollama',
-                'enabled' => 1
-            ], 'actionconfig');
-
-            if (!empty($provider->actionconfig)) {
-                $config = json_decode($provider->actionconfig, true);
-                if (!empty($config['generate_text']['model'])) {
-                    return $config['generate_text']['model'];
-                }
-            }
-        } catch (\Exception $e) {
-            // AI plugin not installed, use fallback.
-        }
-
-        // Fallback to local settings.
-        return get_config('aiplacement_textprocessor', 'ollama_model') ?: 'qwen2:1.5b';
-    }
-    
-    public function process(string $text, string $action, \context $context): array {
+    public function process(string $text, string $action, \context $context, int $userid = 0): array {
+        global $USER;
+        
         if (empty(trim($text))) {
             return ['html' => '', 'success' => false, 'message' => 'Empty text'];
+        }
+        
+        if ($userid === 0) {
+            $userid = $USER->id;
         }
         
         try {
@@ -110,10 +39,18 @@ class processor {
             
             $prompt = $actionclass::get_prompt($text);
             
-            // Вызываем Ollama напрямую
-            $response = $this->call_ollama($prompt);
+            // Вызываем через Moodle AI Manager
+            $response = $this->call_ai_manager($prompt, $context->id, $userid);
             
-            $html = $this->extract_html($response);
+            if (!$response['success']) {
+                return [
+                    'html' => '',
+                    'success' => false,
+                    'message' => $response['error'] ?? 'AI generation failed'
+                ];
+            }
+            
+            $html = $this->extract_html($response['content']);
             
             return [
                 'html' => $html,
@@ -133,56 +70,43 @@ class processor {
     }
     
     /**
-     * Вызов Ollama API напрямую
+     * Вызов AI через Moodle AI Manager
      */
-    private function call_ollama(string $prompt): string {
-        global $CFG;
-        
-        require_once($CFG->libdir . '/filelib.php');
-        
-        $curl = new \curl();
-        
-        $data = [
-            'model' => $this->model,
-            'messages' => [
-                [
-                    'role' => 'system',
-                    'content' => 'You are an HTML generator. Return ONLY valid HTML code. No explanations, no markdown, no code blocks. Just clean HTML.'
-                ],
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ],
-            'stream' => false,
-            'temperature' => 0.3,
-            'top_p' => 0.9
-        ];
-        
-        $options = [
-            'CURLOPT_TIMEOUT' => 120,
-            'CURLOPT_RETURNTRANSFER' => true,
-            'CURLOPT_POST' => true,
-            'CURLOPT_POSTFIELDS' => json_encode($data),
-            'CURLOPT_HTTPHEADER' => [
-                'Content-Type: application/json'
-            ]
-        ];
-        
-        $response = $curl->post($this->ollama_url . '/api/chat', $data, $options);
-        $errno = $curl->get_errno();
-        
-        if ($errno !== 0) {
-            throw new \Exception("Ollama connection failed: " . $curl->error);
+    private function call_ai_manager(string $prompt, int $contextid, int $userid): array {
+        try {
+            // Создаем action для генерации текста
+            $action = new \core_ai\aiactions\generate_text(
+                contextid: $contextid,
+                userid: $userid,
+                prompttext: $prompt
+            );
+            
+            // Получаем AI manager через DI
+            $manager = \core\di::get(\core_ai\manager::class);
+            
+            // Отправляем action на обработку
+            $response = $manager->process_action($action);
+            
+            if ($response->get_success()) {
+                $responsedata = $response->get_response_data();
+                return [
+                    'success' => true,
+                    'content' => $responsedata['generatedcontent'] ?? '',
+                    'model' => $responsedata['model'] ?? 'unknown'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => $response->get_errormessage() ?: $response->get_error()
+                ];
+            }
+        } catch (\Exception $e) {
+            debugging('AI Manager error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
-        
-        $result = json_decode($response, true);
-        
-        if (!isset($result['message']['content'])) {
-            throw new \Exception('Invalid Ollama response');
-        }
-        
-        return $result['message']['content'];
     }
     
     private function extract_html(string $response): string {
@@ -195,25 +119,26 @@ class processor {
     }
     
     /**
-     * Проверка доступности Ollama
+     * Проверка доступности AI
      */
     public function check_health(): array {
         try {
-            $curl = new \curl();
-            $response = $curl->get($this->ollama_url . '/api/tags');
-            $result = json_decode($response, true);
+            $manager = \core\di::get(\core_ai\manager::class);
+            $providers = $manager->get_providers_for_actions([
+                \core_ai\aiactions\generate_text::class
+            ], true);
             
-            $models = [];
-            foreach ($result['models'] ?? [] as $model) {
-                $models[] = $model['name'];
+            if (!empty($providers[\core_ai\aiactions\generate_text::class])) {
+                return [
+                    'status' => 'ok',
+                    'providers' => count($providers[\core_ai\aiactions\generate_text::class])
+                ];
             }
             
             return [
-                'status' => 'ok',
-                'models' => $models,
-                'current' => $this->model
+                'status' => 'error',
+                'message' => 'No AI providers available'
             ];
-            
         } catch (\Exception $e) {
             return [
                 'status' => 'error',

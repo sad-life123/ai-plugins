@@ -16,7 +16,7 @@ class process extends external_api {
     public static function execute_parameters(): external_function_parameters {
         return new external_function_parameters([
             'text' => new external_value(PARAM_RAW, 'Text to process'),
-            'action' => new external_value(PARAM_ALPHA, 'Action to perform', VALUE_DEFAULT, 'to_html'),
+            'action' => new external_value(PARAM_ALPHANUMEXT, 'Action to perform', VALUE_DEFAULT, 'to_html'),
             'contextid' => new external_value(PARAM_INT, 'Context ID', VALUE_DEFAULT, 0)
         ]);
     }
@@ -35,7 +35,7 @@ class process extends external_api {
         require_capability('aiplacement/textprocessor:use', $context);
         
         $processor = new processor();
-        return $processor->process($params['text'], $params['action'], $context);
+        return $processor->process($params['text'], $params['action'], $context, $USER->id);
     }
     
     public static function execute_returns(): external_single_structure {

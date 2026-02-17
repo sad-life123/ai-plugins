@@ -20,89 +20,16 @@ defined('MOODLE_INTERNAL') || die();
 
 class chat {
 
-    private $ollama_url;
-    private $model;
     private $placement;
     private $context;
 
     public function __construct() {
-        // Try to get Ollama URL from provider first, then fallback to local settings.
-        $this->ollama_url = $this->get_ollama_url();
-        $this->model = $this->get_ollama_model();
         $this->placement = new placement();
         $this->context = new context();
     }
-
-    /**
-     * Get Ollama URL from provider or fallback to local settings.
-     *
-     * @return string
-     */
-    private function get_ollama_url(): string {
-        global $DB;
-
-        try {
-            // Check if AI plugin is installed.
-            if (!$DB->get_manager()->table_exists('ai_provider_instances')) {
-                throw new \Exception('AI table not found');
-            }
-
-            // Try to get from aiprovider_ollama instance.
-            $provider = $DB->get_record('ai_provider_instances', [
-                'provider' => 'aiprovider_ollama',
-                'enabled' => 1
-            ], 'config');
-
-            if (!empty($provider->config)) {
-                $config = json_decode($provider->config, true);
-                if (!empty($config['endpoint'])) {
-                    return rtrim($config['endpoint'], '/');
-                }
-            }
-        } catch (\Exception $e) {
-            // AI plugin not installed, use fallback.
-        }
-
-        // Fallback to local settings.
-        return get_config('aiplacement_chat', 'ollama_url') ?: 'http://localhost:11434';
-    }
-
-    /**
-     * Get Ollama model from provider or fallback to local settings.
-     *
-     * @return string
-     */
-    private function get_ollama_model(): string {
-        global $DB;
-
-        try {
-            // Check if AI plugin is installed.
-            if (!$DB->get_manager()->table_exists('ai_provider_instances')) {
-                throw new \Exception('AI table not found');
-            }
-
-            // Try to get from aiprovider_ollama instance.
-            $provider = $DB->get_record('ai_provider_instances', [
-                'provider' => 'aiprovider_ollama',
-                'enabled' => 1
-            ], 'actionconfig');
-
-            if (!empty($provider->actionconfig)) {
-                $config = json_decode($provider->actionconfig, true);
-                if (!empty($config['generate_text']['model'])) {
-                    return $config['generate_text']['model'];
-                }
-            }
-        } catch (\Exception $e) {
-            // AI plugin not installed, use fallback.
-        }
-
-        // Fallback to local settings.
-        return get_config('aiplacement_chat', 'ollama_model') ?: 'llama3.1';
-    }
     
     /**
-     * Отправка сообщения в Ollama + контекст курса
+     * Отправка сообщения через Moodle AI Manager
      */
     public function send_message(string $message, int $courseid, int $userid, array $history = []): array {
         global $DB;
@@ -114,100 +41,96 @@ class chat {
             $course_context = \context_course::instance($courseid);
             $system_prompt = $this->placement->get_system_prompt($course_context, $userid);
             
-            // 2. Формируем историю чата
-            $messages = [
-                [
-                    'role' => 'system',
-                    'content' => $system_prompt
-                ]
-            ];
+            // 2. Формируем полный промпт с историей
+            $fullprompt = $system_prompt . "\n\n";
             
             // Добавляем последние N сообщений из истории
-            $max_history = get_config('coursechat', 'max_history') ?: 50;
+            $max_history = get_config('aiplacement_chat', 'max_history') ?: 10;
             $recent_history = array_slice($history, -$max_history);
             
             foreach ($recent_history as $item) {
-                $messages[] = [
-                    'role' => $item['role'],
-                    'content' => $item['content']
-                ];
+                if ($item['role'] === 'user') {
+                    $fullprompt .= "User: " . $item['content'] . "\n";
+                } else {
+                    $fullprompt .= "Assistant: " . $item['content'] . "\n";
+                }
             }
             
             // Добавляем текущее сообщение
-            $messages[] = [
-                'role' => 'user',
-                'content' => $message
-            ];
+            $fullprompt .= "User: " . $message . "\nAssistant:";
             
-            // 3. Отправляем в Ollama
-            $response = $this->call_ollama($messages);
+            // 3. Отправляем через Moodle AI Manager
+            $response = $this->call_ai_manager($fullprompt, $course_context->id, $userid);
             
             $processing_time = round((microtime(true) - $starttime) * 1000);
             
+            if (!$response['success']) {
+                return [
+                    'success' => false,
+                    'message' => '',
+                    'error' => $response['error'] ?? 'AI generation failed'
+                ];
+            }
+            
             // 4. Логируем
-            $this->log_message($courseid, $userid, $message, $response, $processing_time);
+            $this->log_message($courseid, $userid, $message, $response['message'], $processing_time);
             
             return [
                 'success' => true,
-                'message' => $response,
-                'model' => $this->model,
+                'message' => $response['message'],
+                'model' => $response['model'] ?? 'unknown',
                 'time' => $processing_time
             ];
             
         } catch (\Exception $e) {
-            debugging('Ollama chat error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            debugging('Chat error: ' . $e->getMessage(), DEBUG_DEVELOPER);
             
             return [
                 'success' => false,
-                'message' => get_string('error_ollama', 'aiplacement_chat'),
+                'message' => '',
                 'error' => $e->getMessage()
             ];
         }
     }
     
     /**
-     * Вызов Ollama API
+     * Вызов AI через Moodle AI Manager
      */
-    private function call_ollama(array $messages): string {
-        global $CFG;
-        
-        require_once($CFG->libdir . '/filelib.php');
-        
-        $curl = new \curl();
-        
-        $data = [
-            'model' => $this->model,
-            'messages' => $messages,
-            'stream' => false,
-            'temperature' => 0.7,
-            'top_p' => 0.9,
-            'top_k' => 40
-        ];
-        
-        $options = [
-            'CURLOPT_TIMEOUT' => 120, // 2 минуты на ответ
-            'CURLOPT_RETURNTRANSFER' => true,
-            'CURLOPT_POST' => true,
-            'CURLOPT_POSTFIELDS' => json_encode($data),
-            'CURLOPT_HTTPHEADER' => [
-                'Content-Type: application/json'
-            ]
-        ];
-        
-        $response = $curl->post($this->ollama_url . '/api/chat', $data, $options);
-        $errno = $curl->get_errno();
-        
-        if ($errno !== 0) {
-            throw new \Exception("Ollama connection failed: " . $curl->error);
+    private function call_ai_manager(string $prompt, int $contextid, int $userid): array {
+        try {
+            // Создаем action для генерации текста
+            $action = new \core_ai\aiactions\generate_text(
+                contextid: $contextid,
+                userid: $userid,
+                prompttext: $prompt
+            );
+            
+            // Получаем AI manager через DI
+            $manager = \core\di::get(\core_ai\manager::class);
+            
+            // Отправляем action на обработку
+            $response = $manager->process_action($action);
+            
+            if ($response->get_success()) {
+                $responsedata = $response->get_response_data();
+                return [
+                    'success' => true,
+                    'message' => $responsedata['generatedcontent'] ?? '',
+                    'model' => $responsedata['model'] ?? 'unknown'
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'error' => $response->get_errormessage() ?: $response->get_error()
+                ];
+            }
+        } catch (\Exception $e) {
+            debugging('AI Manager error: ' . $e->getMessage(), DEBUG_DEVELOPER);
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
         }
-        
-        $result = json_decode($response, true);
-        
-        if (!isset($result['message']['content'])) {
-            throw new \Exception('Invalid Ollama response');
-        }
-        
-        return $result['message']['content'];
     }
     
     /**
@@ -221,7 +144,7 @@ class chat {
         $log->userid = $userid;
         $log->question = $question;
         $log->answer = $answer;
-        $log->model = $this->model;
+        $log->model = 'ai_manager';
         $log->processing_time = $time;
         $log->timecreated = time();
         
