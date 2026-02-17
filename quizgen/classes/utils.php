@@ -75,7 +75,7 @@ class utils {
         // Show button if user has capability - Ollama check is done at usage time.
         if (self::is_quizgen_available($context)) {
             $actions[] = [
-                'name' => 'generate',
+                'name' => 'quizgen',
                 'title' => get_string('pluginname', 'aiplacement_quizgen'),
                 'icon' => 'fa-question-circle',
             ];

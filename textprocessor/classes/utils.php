@@ -75,7 +75,7 @@ class utils {
         // Show button if user has capability - Ollama check is done at usage time.
         if (self::is_textprocessor_available($context)) {
             $actions[] = [
-                'name' => 'use',
+                'name' => 'textprocessor',
                 'title' => get_string('pluginname', 'aiplacement_textprocessor'),
                 'icon' => 'fa-text',
             ];

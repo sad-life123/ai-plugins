@@ -45,9 +45,12 @@ class chat_ui {
         // Check Ollama status.
         $ollamastatus = utils::is_ollama_configured();
 
-        // Load the markup for the chat interface.
+        // Generate unique ID for the chat.
+        $uniqid = uniqid('chat_');
+
+        // Load the drawer template with chat content inside.
         $params = [
-            'uniqid' => uniqid('chat_'),
+            'uniqid' => $uniqid,
             'userid' => $USER->id,
             'contextid' => $PAGE->context->id,
             'courseid' => $PAGE->course->id ?? 0,
@@ -58,21 +61,9 @@ class chat_ui {
                 'ollama_configured' => $ollamastatus,
             ]),
         ];
-        $html = $OUTPUT->render_from_template('aiplacement_chat/chat', $params);
-        $hook->add_html($html);
-
-        // Initialize the chat JS module.
-        $containerid = 'coursechat-' . $params['uniqid'];
-        $config = [
-            'courseid' => $PAGE->course->id ?? 0,
-            'contextid' => $PAGE->context->id,
-            'ollama_configured' => $ollamastatus,
-        ];
+        $html = $OUTPUT->render_from_template('aiplacement_chat/drawer', $params);
         
-        // Add inline JS to initialize after DOM is ready.
-        $PAGE->requires->js_init_code(
-            "require(['aiplacement_chat/chat'], function(chat) { chat.init('{$containerid}', " . json_encode($config) . "); });"
-        );
+        $hook->add_html($html);
     }
 
     /**
@@ -99,6 +90,9 @@ class chat_ui {
         if (empty($actions['actions'])) {
             return;
         }
+
+        // Generate unique ID for the chat container that will be toggled.
+        $actions['uniqid'] = uniqid('chat_');
 
         if (count($actions['actions']) > 1) {
             $actions['isdropdown'] = true;

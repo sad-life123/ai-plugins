@@ -30,6 +30,24 @@ use core\hook\output\before_footer_html_generation;
 class textprocessor_ui {
 
     /**
+     * Store the generated uniqid to ensure consistency between UI and buttons.
+     * @var string|null
+     */
+    private static $currentUniqid = null;
+
+    /**
+     * Get or generate a consistent uniqid for this request.
+     *
+     * @return string
+     */
+    private static function get_uniqid(): string {
+        if (self::$currentUniqid === null) {
+            self::$currentUniqid = uniqid('tp_');
+        }
+        return self::$currentUniqid;
+    }
+
+    /**
      * Bootstrap the textprocessor UI.
      *
      * @param before_footer_html_generation $hook
@@ -45,29 +63,23 @@ class textprocessor_ui {
         // Check Ollama status.
         $ollamastatus = utils::is_ollama_configured();
 
-        // Load the markup for the textprocessor interface.
+        // Get consistent uniqid.
+        $uniqid = self::get_uniqid();
+
+        // Load the drawer template with textprocessor content inside.
         $params = [
-            'uniqid' => uniqid('tp_'),
+            'uniqid' => $uniqid,
             'userid' => $USER->id,
             'contextid' => $PAGE->context->id,
             'ollama_status' => $ollamastatus,
-            'initialtext' => '',
+            'config' => json_encode([
+                'contextid' => $PAGE->context->id,
+                'ollama_configured' => $ollamastatus,
+            ]),
         ];
-        $html = $OUTPUT->render_from_template('aiplacement_textprocessor/dialog', $params);
-        $hook->add_html($html);
-
-        // Initialize the textprocessor JS module.
-        // Note: template uses 'textprocessor-ui-{uniqid}' as the ID.
-        $containerid = 'textprocessor-ui-' . $params['uniqid'];
-        $config = [
-            'contextid' => $PAGE->context->id,
-            'ollama_configured' => $ollamastatus,
-        ];
+        $html = $OUTPUT->render_from_template('aiplacement_textprocessor/drawer', $params);
         
-        // Add inline JS to initialize after DOM is ready.
-        $PAGE->requires->js_init_code(
-            "require(['aiplacement_textprocessor/main'], function(tp) { tp.init('{$containerid}', " . json_encode($config) . "); });"
-        );
+        $hook->add_html($html);
     }
 
     /**
@@ -89,6 +101,9 @@ class textprocessor_ui {
         if (empty($actions['actions'])) {
             return;
         }
+
+        // Use consistent uniqid.
+        $actions['uniqid'] = self::get_uniqid();
 
         if (count($actions['actions']) > 1) {
             $actions['isdropdown'] = true;

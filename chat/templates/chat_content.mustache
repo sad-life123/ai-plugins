@@ -1,0 +1,78 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template aiplacement_chat/chat_content
+
+    Template to display the chat content inside the AI drawer.
+
+    Context variables required for this template:
+    * uniqid - Unique ID for the chat
+    * ollama_status - Ollama configuration status
+
+    Example context (json):
+    {
+        "uniqid": "chat_123",
+        "ollama_status": true
+    }
+}}
+<div id="coursechat-{{uniqid}}" class="coursechat-drawer-content">
+    
+    <div class="coursechat-header">
+        <h3>
+            💬 {{#str}}chat_title, aiplacement_chat{{/str}}
+        </h3>
+        <div class="coursechat-header-actions">
+            <button class="btn btn-sm btn-outline-secondary coursechat-clear" 
+                    data-container="coursechat-{{uniqid}}"
+                    title="{{#str}}clear_history, aiplacement_chat{{/str}}">
+                🗑️
+            </button>
+        </div>
+    </div>
+    
+    <div class="coursechat-messages">
+        <!-- Welcome message will be added by JS -->
+    </div>
+    
+    <div class="coursechat-typing" style="display: none;">
+        <span>{{#str}}typing, aiplacement_chat{{/str}}</span>
+        <div class="typing-dots">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
+    </div>
+    
+    {{^ollama_status}}
+    <div class="alert alert-warning m-3">
+        ⚠️ {{#str}}ollama_not_configured, aiplacement_chat{{/str}}
+    </div>
+    {{/ollama_status}}
+    
+    <div class="coursechat-input-area">
+        <textarea 
+            class="coursechat-input" 
+            rows="1"
+            placeholder="{{#str}}input_placeholder, aiplacement_chat{{/str}}"
+            {{^ollama_status}}disabled{{/ollama_status}}
+        ></textarea>
+        <button class="coursechat-send" {{^ollama_status}}disabled{{/ollama_status}}>
+            ➤
+        </button>
+    </div>
+    
+</div>

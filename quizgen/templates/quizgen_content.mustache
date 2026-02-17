@@ -1,0 +1,131 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template aiplacement_quizgen/quizgen_content
+
+    Template to display the quiz generator content inside the AI drawer.
+
+    Context variables required for this template:
+    * uniqid - Unique ID
+    * ollama_status - Ollama configuration status
+    * model - Ollama model name
+
+    Example context (json):
+    {
+        "uniqid": "quiz_123",
+        "ollama_status": true,
+        "model": "qwen2:1.5b"
+    }
+}}
+<div id="quizgen-{{uniqid}}" class="quizgen-drawer-content">
+    
+    <div class="quizgen-header">
+        <h3>{{#str}}pluginname, aiplacement_quizgen{{/str}}</h3>
+        {{#ollama_status}}
+        <span class="quizgen-badge">🦙 {{model}}</span>
+        {{/ollama_status}}
+    </div>
+    
+    {{^ollama_status}}
+    <div class="alert alert-warning m-3">
+        ⚠️ {{#str}}ollama_not_configured, aiplacement_quizgen{{/str}}
+    </div>
+    {{/ollama_status}}
+    
+    <!-- SETTINGS -->
+    <div class="quizgen-settings-panel">
+        <div class="quizgen-settings-grid">
+            
+            <div class="quizgen-setting-item">
+                <label for="quizgen-count-{{uniqid}}">{{#str}}question_count, aiplacement_quizgen{{/str}}</label>
+                <select id="quizgen-count-{{uniqid}}" class="form-control quizgen-question-count" {{^ollama_status}}disabled{{/ollama_status}}>
+                    <option value="3">3</option>
+                    <option value="5" selected>5</option>
+                    <option value="10">10</option>
+                    <option value="15">15</option>
+                    <option value="20">20</option>
+                </select>
+            </div>
+            
+            <div class="quizgen-setting-item">
+                <label for="quizgen-type-{{uniqid}}">{{#str}}question_type, aiplacement_quizgen{{/str}}</label>
+                <select id="quizgen-type-{{uniqid}}" class="form-control quizgen-question-type" {{^ollama_status}}disabled{{/ollama_status}}>
+                    <option value="multichoice" selected>{{#str}}multichoice, aiplacement_quizgen{{/str}}</option>
+                    <option value="truefalse">{{#str}}truefalse, aiplacement_quizgen{{/str}}</option>
+                    <option value="shortanswer">{{#str}}shortanswer, aiplacement_quizgen{{/str}}</option>
+                    <option value="matching">{{#str}}matching, aiplacement_quizgen{{/str}}</option>
+                    <option value="essay">{{#str}}essay, aiplacement_quizgen{{/str}}</option>
+                </select>
+            </div>
+            
+            <div class="quizgen-setting-item">
+                <label for="quizgen-difficulty-{{uniqid}}">{{#str}}difficulty, aiplacement_quizgen{{/str}}</label>
+                <select id="quizgen-difficulty-{{uniqid}}" class="form-control quizgen-difficulty" {{^ollama_status}}disabled{{/ollama_status}}>
+                    <option value="easy">{{#str}}easy, aiplacement_quizgen{{/str}}</option>
+                    <option value="medium" selected>{{#str}}medium, aiplacement_quizgen{{/str}}</option>
+                    <option value="hard">{{#str}}hard, aiplacement_quizgen{{/str}}</option>
+                </select>
+            </div>
+            
+            <div class="quizgen-setting-item">
+                <label for="quizgen-language-{{uniqid}}">{{#str}}language, aiplacement_quizgen{{/str}}</label>
+                <select id="quizgen-language-{{uniqid}}" class="form-control quizgen-language" {{^ollama_status}}disabled{{/ollama_status}}>
+                    <option value="ru" selected>Русский</option>
+                    <option value="en">English</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <!-- INPUT TEXT -->
+    <div class="quizgen-input-area">
+        <label for="quizgen-text-{{uniqid}}">
+            <strong>{{#str}}source_text, aiplacement_quizgen{{/str}}</strong>
+            <span class="quizgen-char-counter" style="float: right; color: #6c757d;"></span>
+        </label>
+        <textarea 
+            id="quizgen-text-{{uniqid}}"
+            class="quizgen-textarea" 
+            rows="6"
+            placeholder="{{#str}}input_placeholder, aiplacement_quizgen{{/str}}"
+            {{^ollama_status}}disabled{{/ollama_status}}></textarea>
+    </div>
+    
+    <!-- BUTTONS -->
+    <div class="quizgen-actions">
+        <button class="quizgen-btn quizgen-btn-primary quizgen-generate-btn" {{^ollama_status}}disabled{{/ollama_status}}>
+            🎯 {{#str}}generate, aiplacement_quizgen{{/str}}
+        </button>
+        <button class="quizgen-btn quizgen-btn-success quizgen-save-all-btn" {{^ollama_status}}disabled{{/ollama_status}}>
+            💾 {{#str}}save_all, aiplacement_quizgen{{/str}}
+        </button>
+    </div>
+    
+    <!-- PROGRESS -->
+    <div class="quizgen-progress">
+        <div class="quizgen-spinner"></div>
+        <span>{{#str}}generating, aiplacement_quizgen{{/str}}</span>
+    </div>
+    
+    <!-- QUESTIONS -->
+    <div class="quizgen-questions-grid">
+        <div class="alert alert-info text-center" style="padding: 20px;">
+            🤖 {{#str}}generate_hint, aiplacement_quizgen{{/str}}
+        </div>
+    </div>
+    
+</div>

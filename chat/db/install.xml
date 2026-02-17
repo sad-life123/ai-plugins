@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="chat/db" VERSION="2026021601" COMMENT="Course Chat tables">
+<XMLDB PATH="ai/placement/chat/db" VERSION="2026021601" COMMENT="Course Chat tables">
   <TABLES>
     
     <!-- Chat messages log -->

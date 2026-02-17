@@ -30,6 +30,24 @@ use core\hook\output\before_footer_html_generation;
 class quizgen_ui {
 
     /**
+     * Store the generated uniqid to ensure consistency between UI and buttons.
+     * @var string|null
+     */
+    private static $currentUniqid = null;
+
+    /**
+     * Get or generate a consistent uniqid for this request.
+     *
+     * @return string
+     */
+    private static function get_uniqid(): string {
+        if (self::$currentUniqid === null) {
+            self::$currentUniqid = uniqid('quiz_');
+        }
+        return self::$currentUniqid;
+    }
+
+    /**
      * Bootstrap the quizgen UI.
      *
      * @param before_footer_html_generation $hook
@@ -45,33 +63,26 @@ class quizgen_ui {
         // Check Ollama status.
         $ollamastatus = utils::is_ollama_configured();
 
-        // Load the markup for the quizgen interface.
+        // Get consistent uniqid.
+        $uniqid = self::get_uniqid();
+
+        // Load the drawer template with quizgen content inside.
         $params = [
-            'uniqid' => uniqid('quiz_'),
+            'uniqid' => $uniqid,
             'userid' => $USER->id,
             'contextid' => $PAGE->context->id,
             'courseid' => $PAGE->course->id ?? 0,
             'ollama_status' => $ollamastatus,
             'model' => get_config('aiplacement_quizgen', 'ollama_model') ?: 'qwen2:1.5b',
-            'auto_save' => get_config('aiplacement_quizgen', 'auto_save') ?: false,
-            'initialtext' => '',
-            'questions' => [],
+            'config' => json_encode([
+                'courseid' => $PAGE->course->id ?? 0,
+                'contextid' => $PAGE->context->id,
+                'ollama_configured' => $ollamastatus,
+            ]),
         ];
-        $html = $OUTPUT->render_from_template('aiplacement_quizgen/generator', $params);
-        $hook->add_html($html);
-
-        // Initialize the quizgen JS module.
-        $containerid = 'quizgen-' . $params['uniqid'];
-        $config = [
-            'courseid' => $PAGE->course->id ?? 0,
-            'contextid' => $PAGE->context->id,
-            'ollama_configured' => $ollamastatus,
-        ];
+        $html = $OUTPUT->render_from_template('aiplacement_quizgen/drawer', $params);
         
-        // Add inline JS to initialize after DOM is ready.
-        $PAGE->requires->js_init_code(
-            "require(['aiplacement_quizgen/generator'], function(quizgen) { quizgen.init('{$containerid}', " . json_encode($config) . "); });"
-        );
+        $hook->add_html($html);
     }
 
     /**
@@ -93,6 +104,9 @@ class quizgen_ui {
         if (empty($actions['actions'])) {
             return;
         }
+
+        // Use consistent uniqid for the quizgen container that will be toggled.
+        $actions['uniqid'] = self::get_uniqid();
 
         if (count($actions['actions']) > 1) {
             $actions['isdropdown'] = true;

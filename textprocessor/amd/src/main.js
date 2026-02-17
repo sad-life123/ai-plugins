@@ -1,236 +1,442 @@
-// /ai/placement/textprocessor/amd/src/main.js
+// This file is part of Moodle - http://moodle.org/
+//
+// Moodle is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Moodle is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-define(['core/ajax', 'core/notification'], function(Ajax, Notification) {
-    
-    var textprocessorInstance = null;
-    
+/**
+ * Module to load and render the text processor for the AI TextProcessor plugin.
+ *
+ * @module     aiplacement_textprocessor/main
+ * @copyright  2025
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
+define([
+    'core/ajax',
+    'core/notification',
+    'aiplacement_textprocessor/selectors',
+    'core/drawer_events',
+    'core/pubsub',
+    'core_message/message_drawer_helper',
+    'core/local/aria/focuslock',
+    'core/pagehelpers'
+], function(
+    Ajax,
+    Notification,
+    Selectors,
+    DrawerEvents,
+    PubSub,
+    MessageDrawerHelper,
+    FocusLock,
+    PageHelpers
+) {
+
+const AIPTextProcessor = class {
+
     /**
-     * Класс для UI текст процессора
+     * The user ID.
+     * @type {Integer}
      */
-    var TextProcessorUI = function(elementId, config) {
-        this.container = document.getElementById(elementId);
-        this.config = config || {};
-        this.ollamaConfigured = config.ollama_configured !== false;
+    userId;
+    /**
+     * The context ID.
+     * @type {Integer}
+     */
+    contextId;
+    /**
+     * Whether Ollama is configured.
+     * @type {Boolean}
+     */
+    ollamaConfigured;
+    /**
+     * Config object.
+     * @type {Object}
+     */
+    config;
+    /**
+     * Current action.
+     * @type {String}
+     */
+    currentAction;
+
+    /**
+     * Constructor.
+     * @param {Integer} userId The user ID.
+     * @param {Integer} contextId The context ID.
+     * @param {Boolean} ollamaConfigured Whether Ollama is configured.
+     * @param {Object} config Configuration object.
+     */
+    constructor(userId, contextId, ollamaConfigured, config = {}) {
+        this.userId = userId;
+        this.contextId = contextId;
+        this.ollamaConfigured = ollamaConfigured;
+        this.config = config;
         this.currentAction = 'to_html';
-        this.init();
-    };
 
-    TextProcessorUI.prototype.init = function() {
-        if (!this.container) {
-            console.error('TextProcessor container not found:', elementId);
-            return;
-        }
-        
-        this.input = this.container.querySelector('.textprocessor-input');
-        this.output = this.container.querySelector('.textprocessor-output');
-        this.preview = this.container.querySelector('.textprocessor-preview');
-        this.processBtn = this.container.querySelector('.textprocessor-process-btn');
-        this.copyBtn = this.container.querySelector('.textprocessor-copy-btn');
-        this.insertBtn = this.container.querySelector('.textprocessor-insert-btn');
-        this.actionBtns = this.container.querySelectorAll('.textprocessor-action-btn');
-        
-        this.bindEvents();
-        
-        // Show warning if Ollama is not configured.
-        if (!this.ollamaConfigured && this.processBtn) {
-            this.processBtn.disabled = true;
-            this.processBtn.title = 'Ollama is not configured. Please configure Ollama in plugin settings.';
-        }
-        
-        console.log('TextProcessor initialized, container:', this.container.id, 'Ollama configured:', this.ollamaConfigured);
-    };
+        this.aiDrawerElement = document.querySelector(Selectors.ELEMENTS.AIDRAWER);
+        this.aiDrawerBodyElement = document.querySelector(Selectors.ELEMENTS.AIDRAWER_BODY);
+        this.pageElement = document.querySelector(Selectors.ELEMENTS.PAGE);
+        this.jumpToElement = document.querySelector(Selectors.ELEMENTS.JUMPTO);
+        this.actionElement = document.querySelector(Selectors.ELEMENTS.ACTION);
 
-    TextProcessorUI.prototype.bindEvents = function() {
-        var self = this;
-        
+        this.container = document.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_CONTAINER);
+        this.input = this.container?.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_INPUT);
+        this.output = this.container?.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_OUTPUT);
+        this.preview = this.container?.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_PREVIEW);
+        this.processBtn = this.container?.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_PROCESS_BTN);
+        this.copyBtn = this.container?.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_COPY_BTN);
+        this.insertBtn = this.container?.querySelector(Selectors.ELEMENTS.TEXTPROCESSOR_INSERT_BTN);
+        this.actionBtns = this.container?.querySelectorAll(Selectors.ELEMENTS.TEXTPROCESSOR_ACTION_BTN);
+
+        this.isDrawerFocusLocked = false;
+
+        this.registerEventListeners();
+    }
+
+    /**
+     * Register event listeners.
+     */
+    registerEventListeners() {
+        // Handle action button click to open drawer.
+        document.addEventListener('click', (e) => {
+            const textprocessorAction = e.target.closest(Selectors.ACTIONS.TEXTPROCESSOR_OPEN);
+            if (textprocessorAction) {
+                e.preventDefault();
+                this.openAIDrawer();
+            }
+            
+            // Close AI drawer.
+            const closeAiDrawer = e.target.closest(Selectors.ELEMENTS.AIDRAWER_CLOSE);
+            if (closeAiDrawer) {
+                e.preventDefault();
+                this.closeAIDrawer();
+            }
+        });
+
+        // Process button.
         if (this.processBtn) {
-            this.processBtn.addEventListener('click', function() { 
-                self.process(); 
-            });
+            this.processBtn.addEventListener('click', () => this.process());
         }
-        
+
+        // Copy button.
         if (this.copyBtn) {
-            this.copyBtn.addEventListener('click', function() { 
-                self.copyToClipboard(); 
-            });
+            this.copyBtn.addEventListener('click', () => this.copyToClipboard());
         }
-        
+
+        // Insert button.
         if (this.insertBtn) {
-            this.insertBtn.addEventListener('click', function() { 
-                self.insertToEditor(); 
-            });
+            this.insertBtn.addEventListener('click', () => this.insertToEditor());
         }
-        
+
+        // Action buttons.
         if (this.actionBtns && this.actionBtns.length) {
-            this.actionBtns.forEach(function(btn) {
-                btn.addEventListener('click', function(e) {
-                    var action = e.target.dataset.action;
-                    self.setAction(action);
-                    self.process();
+            this.actionBtns.forEach((btn) => {
+                btn.addEventListener('click', (e) => {
+                    const action = e.target.dataset.action || e.target.closest('[data-action]')?.dataset.action;
+                    if (action) {
+                        this.setAction(action);
+                        this.process();
+                    }
                 });
             });
         }
-    };
 
-    TextProcessorUI.prototype.setAction = function(action) {
-        this.currentAction = action;
-        
-        if (this.actionBtns && this.actionBtns.length) {
-            this.actionBtns.forEach(function(btn) {
-                if (btn.dataset.action === action) {
-                    btn.classList.add('active', 'btn-primary');
-                } else {
-                    btn.classList.remove('active', 'btn-primary');
+        // Handle Escape key to close drawer.
+        document.addEventListener('keydown', e => {
+            if (this.isAIDrawerOpen() && e.key === 'Escape') {
+                this.closeAIDrawer();
+            }
+        });
+
+        // Close AI drawer if message drawer is shown.
+        PubSub.subscribe(DrawerEvents.DRAWER_SHOWN, () => {
+            if (this.isAIDrawerOpen()) {
+                this.closeAIDrawer();
+            }
+        });
+
+        // Focus on the AI drawer's close button when the jump-to element is focused.
+        if (this.jumpToElement) {
+            this.jumpToElement.addEventListener('focus', () => {
+                const closeBtn = this.aiDrawerElement?.querySelector(Selectors.ELEMENTS.AIDRAWER_CLOSE);
+                if (closeBtn) {
+                    closeBtn.focus();
                 }
             });
         }
-    };
 
-    TextProcessorUI.prototype.process = function() {
+        // Focus on the action element when the AI drawer container receives focus.
+        if (this.aiDrawerElement && this.actionElement) {
+            this.aiDrawerElement.addEventListener('focus', () => {
+                this.actionElement.focus();
+            });
+        }
+
+        // Remove active from the action element when it loses focus.
+        if (this.actionElement) {
+            this.actionElement.addEventListener('blur', () => {
+                this.actionElement.classList.remove('active');
+            });
+        }
+    }
+
+    /**
+     * Set the current action.
+     * @param {String} action The action to set.
+     */
+    setAction(action) {
+        this.currentAction = action;
+
+        if (this.actionBtns && this.actionBtns.length) {
+            this.actionBtns.forEach((btn) => {
+                const btnAction = btn.dataset.action;
+                if (btnAction === action) {
+                    btn.classList.add('active', 'btn-primary');
+                    btn.classList.remove('btn-outline-secondary');
+                } else {
+                    btn.classList.remove('active', 'btn-primary');
+                    btn.classList.add('btn-outline-secondary');
+                }
+            });
+        }
+    }
+
+    /**
+     * Check if the AI drawer is open.
+     * @return {boolean} True if the AI drawer is open, false otherwise.
+     */
+    isAIDrawerOpen() {
+        return this.aiDrawerElement?.classList.contains('show');
+    }
+
+    /**
+     * Open the AI drawer.
+     */
+    openAIDrawer() {
+        if (!this.aiDrawerElement) {
+            return;
+        }
+
+        // Close message drawer if it is shown.
+        MessageDrawerHelper.hide();
+
+        this.aiDrawerElement.classList.add('show');
+        this.aiDrawerElement.setAttribute('tabindex', 0);
+        this.aiDrawerBodyElement?.setAttribute('aria-live', 'polite');
+
+        if (this.pageElement && !this.pageElement.classList.contains('show-drawer-right')) {
+            this.addPadding();
+        }
+
+        if (this.jumpToElement) {
+            this.jumpToElement.setAttribute('tabindex', 0);
+            this.jumpToElement.focus();
+        }
+
+        // If the AI drawer is opened on a small screen, we need to trap the focus tab within the AI drawer.
+        if (PageHelpers.isSmall()) {
+            FocusLock.trapFocus(this.aiDrawerElement);
+            this.aiDrawerElement.setAttribute('aria-modal', 'true');
+            this.aiDrawerElement.setAttribute('role', 'dialog');
+            this.isDrawerFocusLocked = true;
+        }
+    }
+
+    /**
+     * Close the AI drawer.
+     */
+    closeAIDrawer() {
+        if (!this.aiDrawerElement) {
+            return;
+        }
+
+        // Untrap focus if it was locked.
+        if (this.isDrawerFocusLocked) {
+            FocusLock.untrapFocus();
+            this.aiDrawerElement.removeAttribute('aria-modal');
+            this.aiDrawerElement.setAttribute('role', 'region');
+        }
+
+        this.aiDrawerElement.classList.remove('show');
+        this.aiDrawerElement.setAttribute('tabindex', -1);
+
+        if (this.aiDrawerBodyElement) {
+            this.aiDrawerBodyElement.removeAttribute('aria-live');
+        }
+
+        if (this.pageElement && this.pageElement.classList.contains('show-drawer-right')) {
+            this.removePadding();
+        }
+
+        if (this.jumpToElement) {
+            this.jumpToElement.setAttribute('tabindex', -1);
+        }
+
+        // Set focus on the action element.
+        if (this.actionElement) {
+            this.actionElement.classList.add('active');
+            this.actionElement.focus();
+        }
+    }
+
+    /**
+     * Toggle the AI drawer.
+     */
+    toggleAIDrawer() {
+        if (this.isAIDrawerOpen()) {
+            this.closeAIDrawer();
+        } else {
+            this.openAIDrawer();
+        }
+    }
+
+    /**
+     * Add padding to the page to make space for the AI drawer.
+     */
+    addPadding() {
+        if (this.pageElement && this.aiDrawerBodyElement) {
+            this.pageElement.classList.add('show-drawer-right');
+            this.aiDrawerBodyElement.dataset.removepadding = '1';
+        }
+    }
+
+    /**
+     * Remove padding from the page.
+     */
+    removePadding() {
+        if (this.pageElement && this.aiDrawerBodyElement) {
+            this.pageElement.classList.remove('show-drawer-right');
+            this.aiDrawerBodyElement.dataset.removepadding = '0';
+        }
+    }
+
+    /**
+     * Process the text.
+     */
+    async process() {
         // Check if Ollama is configured.
         if (!this.ollamaConfigured) {
             Notification.alert('Ollama not configured', 'Please configure Ollama in plugin settings to process text.');
             return;
         }
-        
-        var self = this;
-        var text = this.input ? this.input.value.trim() : '';
-        
+
+        const text = this.input?.value?.trim();
+
         if (!text) {
-            Notification.alert('Ошибка', 'Введите текст для обработки');
+            Notification.alert('Error', 'Please enter text to process');
             return;
         }
-        
+
         this.setLoading(true);
-        
-        Ajax.call([{
-            methodname: 'aiplacement_textprocessor_process',
-            args: {
-                text: text,
-                action: this.currentAction,
-                contextid: this.config.contextid || 0
-            }
-        }]).then(function(response) {
-            if (response.success) {
-                if (self.output) {
-                    self.output.value = response.html;
+
+        try {
+            const response = await Ajax.call([{
+                methodname: 'aiplacement_textprocessor_process',
+                args: {
+                    text: text,
+                    action: this.currentAction,
+                    contextid: this.contextId
                 }
-                if (self.preview) {
-                    self.preview.innerHTML = response.html;
+            }])[0];
+
+            if (response.success) {
+                if (this.output) {
+                    this.output.value = response.html;
+                }
+                if (this.preview) {
+                    this.preview.innerHTML = response.html;
                 }
             } else {
-                throw new Error(response.message || 'Ошибка обработки');
+                throw new Error(response.message || 'Processing error');
             }
-        }).catch(function(error) {
+        } catch (error) {
             Notification.exception(error);
-            if (self.output) {
-                self.output.value = 'Ошибка: ' + error.message;
+            if (this.output) {
+                this.output.value = 'Error: ' + error.message;
             }
-            Notification.alert('Ошибка', error.message);
-        }).finally(function() {
-            self.setLoading(false);
-        });
-    };
+            Notification.alert('Error', error.message);
+        } finally {
+            this.setLoading(false);
+        }
+    }
 
-    TextProcessorUI.prototype.copyToClipboard = function() {
-        var self = this;
-        var html = this.output ? this.output.value : '';
-        
-        if (!html) return;
-        
-        navigator.clipboard.writeText(html).then(function() {
-            var original = self.copyBtn.textContent;
-            self.copyBtn.textContent = '✓ Скопировано!';
-            setTimeout(function() {
-                self.copyBtn.textContent = original;
+    /**
+     * Copy to clipboard.
+     */
+    copyToClipboard() {
+        const html = this.output?.value;
+
+        if (!html) {
+            return;
+        }
+
+        navigator.clipboard.writeText(html).then(() => {
+            const originalText = this.copyBtn?.textContent;
+            if (this.copyBtn) {
+                this.copyBtn.textContent = '✓ Copied!';
+            }
+            setTimeout(() => {
+                if (this.copyBtn && originalText) {
+                    this.copyBtn.textContent = originalText;
+                }
             }, 2000);
-        }).catch(function() {
-            Notification.alert('Ошибка', 'Не удалось скопировать');
+        }).catch(() => {
+            Notification.alert('Error', 'Failed to copy');
         });
-    };
+    }
 
-    TextProcessorUI.prototype.insertToEditor = function() {
-        var html = this.output ? this.output.value : '';
-        if (!html) return;
-        
-        // Вставка в TinyMCE
+    /**
+     * Insert to editor.
+     */
+    insertToEditor() {
+        const html = this.output?.value;
+        if (!html) {
+            return;
+        }
+
+        // Insert into TinyMCE or textarea.
         if (this.config.editor) {
             this.config.editor.insertContent(html);
-        } 
-        // Вставка в textarea
-        else if (this.config.editorId) {
-            var textarea = document.getElementById(this.config.editorId);
+        } else if (this.config.editorId) {
+            const textarea = document.getElementById(this.config.editorId);
             if (textarea) {
-                var start = textarea.selectionStart;
-                var end = textarea.selectionEnd;
-                textarea.value = textarea.value.substring(0, start) + 
-                                html + 
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+                textarea.value = textarea.value.substring(0, start) +
+                                html +
                                 textarea.value.substring(end);
             }
         }
-        
-        // Закрыть диалог
-        if (this.config.dialog && this.config.dialog.hide) {
-            this.config.dialog.hide();
-        }
-    };
+    }
 
-    TextProcessorUI.prototype.setLoading = function(loading) {
-        if (!this.processBtn) return;
-        
+    /**
+     * Set loading state.
+     * @param {Boolean} loading Whether loading.
+     */
+    setLoading(loading) {
+        if (!this.processBtn) {
+            return;
+        }
+
         if (loading) {
             this.processBtn.disabled = true;
-            this.processBtn.innerHTML = '⏳ Обработка...';
+            this.processBtn.innerHTML = '⏳ Processing...';
         } else {
-            this.processBtn.disabled = false;
-            this.processBtn.innerHTML = '✨ Обработать';
+            this.processBtn.disabled = !this.ollamaConfigured;
+            this.processBtn.innerHTML = '✨ Process';
         }
-    };
-    
-    TextProcessorUI.prototype.show = function() {
-        if (this.container) {
-            this.container.style.display = 'block';
-        }
-    };
-    
-    TextProcessorUI.prototype.hide = function() {
-        if (this.container) {
-            this.container.style.display = 'none';
-        }
-    };
-    
-    TextProcessorUI.prototype.toggle = function() {
-        if (this.container) {
-            var currentDisplay = this.container.style.display;
-            this.container.style.display = (currentDisplay === 'none' || currentDisplay === '') ? 'block' : 'none';
-        }
-    };
+    }
+};
 
-    return {
-        init: function(elementId, config) {
-            textprocessorInstance = new TextProcessorUI(elementId, config);
-            
-            // Set up toggle handler for the action button
-            setTimeout(function() {
-                var toggleBtn = document.querySelector('.aiplacement-textprocessor-action button');
-                if (toggleBtn && textprocessorInstance) {
-                    toggleBtn.onclick = function(e) {
-                        e.preventDefault();
-                        textprocessorInstance.toggle();
-                    };
-                    console.log('TextProcessor toggle button handler attached');
-                }
-            }, 500);
-            
-            return textprocessorInstance;
-        },
-        open: function() {
-            if (textprocessorInstance) {
-                textprocessorInstance.toggle();
-            }
-        },
-        getInstance: function() {
-            return textprocessorInstance;
-        }
-    };
+return AIPTextProcessor;
 });

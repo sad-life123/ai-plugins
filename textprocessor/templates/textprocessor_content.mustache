@@ -1,0 +1,93 @@
+{{!
+    This file is part of Moodle - http://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
+}}
+{{!
+    @template aiplacement_textprocessor/textprocessor_content
+
+    Template to display the text processor content inside the AI drawer.
+
+    Context variables required for this template:
+    * uniqid - Unique ID
+    * ollama_status - Ollama configuration status
+
+    Example context (json):
+    {
+        "uniqid": "tp_123",
+        "ollama_status": true
+    }
+}}
+<div id="textprocessor-ui-{{uniqid}}" class="textprocessor-drawer-content">
+    
+    <div class="textprocessor-header">
+        <h3>{{#str}}pluginname, aiplacement_textprocessor{{/str}}</h3>
+    </div>
+    
+    {{^ollama_status}}
+    <div class="alert alert-warning m-3">
+        ⚠️ {{#str}}ollama_not_configured, aiplacement_textprocessor{{/str}}
+    </div>
+    {{/ollama_status}}
+    
+    <div class="textprocessor-toolbar">
+        <button class="textprocessor-btn textprocessor-action-btn active" data-action="to_html" {{^ollama_status}}disabled{{/ollama_status}}>
+            📄 {{#str}}to_html, aiplacement_textprocessor{{/str}}
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="from_markdown" {{^ollama_status}}disabled{{/ollama_status}}>
+            🔗 {{#str}}from_markdown, aiplacement_textprocessor{{/str}}
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="to_table" {{^ollama_status}}disabled{{/ollama_status}}>
+            📊 {{#str}}to_table, aiplacement_textprocessor{{/str}}
+        </button>
+        <button class="textprocessor-btn textprocessor-action-btn" data-action="clean_html" {{^ollama_status}}disabled{{/ollama_status}}>
+            ✨ {{#str}}clean_html, aiplacement_textprocessor{{/str}}
+        </button>
+    </div>
+    
+    <div class="textprocessor-input-area">
+        <label for="textprocessor-input-{{uniqid}}" class="visually-hidden">{{#str}}input_label, aiplacement_textprocessor{{/str}}</label>
+        <textarea 
+            id="textprocessor-input-{{uniqid}}"
+            class="textprocessor-input" 
+            rows="6"
+            placeholder="{{#str}}input_placeholder, aiplacement_textprocessor{{/str}}"
+            {{^ollama_status}}disabled{{/ollama_status}}></textarea>
+    </div>
+    
+    <div class="textprocessor-actions">
+        <button class="textprocessor-btn textprocessor-process-btn btn-primary" {{^ollama_status}}disabled{{/ollama_status}}>
+            ✨ {{#str}}process, aiplacement_textprocessor{{/str}}
+        </button>
+        <button class="textprocessor-btn textprocessor-copy-btn btn-outline-secondary" {{^ollama_status}}disabled{{/ollama_status}}>
+            📋 {{#str}}copy, aiplacement_textprocessor{{/str}}
+        </button>
+        <button class="textprocessor-btn textprocessor-insert-btn btn-outline-secondary" {{^ollama_status}}disabled{{/ollama_status}}>
+            📝 {{#str}}insert, aiplacement_textprocessor{{/str}}
+        </button>
+    </div>
+    
+    <div class="textprocessor-output-area">
+        <label for="textprocessor-output-{{uniqid}}" class="visually-hidden">{{#str}}output_label, aiplacement_textprocessor{{/str}}</label>
+        <textarea 
+            id="textprocessor-output-{{uniqid}}"
+            class="textprocessor-output" 
+            rows="8"
+            readonly
+            placeholder="{{#str}}output_placeholder, aiplacement_textprocessor{{/str}}"></textarea>
+    </div>
+    
+    <div class="textprocessor-preview"></div>
+    
+</div>
