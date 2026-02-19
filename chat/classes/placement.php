@@ -59,7 +59,7 @@ class placement extends base_placement {
     public function get_system_prompt(\context $context, int $userid): string {
         $contextobj = new context();
         $coursecontext = $context->get_course_context();
-        $courseid = $coursecontext->id;
+        $courseid = $coursecontext->instanceid;
 
         $context_text = $contextobj->get_course_context($courseid, $userid);
 
@@ -73,7 +73,7 @@ class placement extends base_placement {
 2. Будь кратким и полезным
 3. Если не знаешь ответ - честно скажи об этом
 4. Используй контекст курса для релевантных ответов
-
-Отвечай на вопрос студента:";
+5. Не пиши приветствия в каждом сообщении - отвечай прямо на вопрос
+6. Продолжай диалог естественно, как в обычном разговоре";
     }
 }

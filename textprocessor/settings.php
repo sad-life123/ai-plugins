@@ -14,87 +14,38 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
-use core_ai\admin\admin_settingspage_provider;
-
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
     // Create settings page for the plugin.
-    $settings = new admin_settingspage_provider(
+    $settings = new admin_settingpage(
         'aiplacement_textprocessor',
         get_string('pluginname', 'aiplacement_textprocessor'),
-        'moodle/site:config',
-        true, // This is an AI placement.
+        'moodle/site:config'
     );
 
-    // Check if Ollama provider is configured (only if AI plugin is installed).
-    $ollamaenabled = false;
-    try {
-        global $DB;
-        if ($DB->get_manager()->table_exists('ai_provider_instances')) {
-            $ollamaenabled = $DB->record_exists('ai_provider_instances', [
-                'provider' => 'aiprovider_ollama',
-                'enabled' => 1
-            ]);
-        }
-    } catch (\Exception $e) {
-        // AI plugin not installed yet.
-    }
-
     // ============================================
-    // 🦙 OLLAMA SETTINGS (Fallback)
+    // 📝 TEXT PROCESSING SETTINGS
     // ============================================
-    $ollama_desc = $ollamaenabled
-        ? 'Ollama provider is configured in AI → Providers. These settings are used as fallback if provider is disabled.'
-        : 'Configure Ollama URL here or set up Ollama provider in AI → Providers for better management.';
-
-    $settings->add(new admin_setting_heading('ollama_heading',
-        '🦙 Ollama Settings (Fallback)',
-        $ollama_desc
+    $settings->add(new admin_setting_heading('processing_heading',
+        get_string('processing_heading', 'aiplacement_textprocessor'),
+        get_string('processing_heading_desc', 'aiplacement_textprocessor')
     ));
 
-    $settings->add(new admin_setting_configtext(
-        'aiplacement_textprocessor/ollama_url',
-        'Ollama Server URL',
-        'Ollama API address (default: http://localhost:11434)',
-        'http://localhost:11434',
-        PARAM_URL
-    ));
-
-    $settings->add(new admin_setting_configtext(
-        'aiplacement_textprocessor/ollama_model',
-        'Text Processing Model',
-        'Recommended: llama3.1, qwen2.5, mistral',
-        'qwen2:1.5b',
+    $settings->add(new admin_setting_configtextarea(
+        'aiplacement_textprocessor/custom_prompt',
+        get_string('custom_prompt', 'aiplacement_textprocessor'),
+        get_string('custom_prompt_desc', 'aiplacement_textprocessor'),
+        '',
         PARAM_TEXT
     ));
 
     // ============================================
-    // ⚙️ VISIBILITY SETTINGS
+    // ℹ️ INFO
     // ============================================
-    $settings->add(new admin_setting_heading('visibility_heading',
-        '⚙️ Visibility Settings',
-        'Control when the text processor is available'
-    ));
-
-    $settings->add(new admin_setting_configcheckbox(
-        'aiplacement_textprocessor/show_in_edit_mode',
-        'Show in Edit Mode Only',
-        'Only show the text processor when editing the course',
-        1
-    ));
-
-    $settings->add(new admin_setting_configselect(
-        'aiplacement_textprocessor/min_course_depth',
-        'Minimum Course Depth',
-        'Show only at this course section depth or deeper (0 = show everywhere)',
-        0,
-        [
-            0 => 'Show everywhere',
-            1 => 'Section level (1)',
-            2 => 'Subsection level (2)',
-            3 => 'Deep level (3+)'
-        ]
+    $settings->add(new admin_setting_heading('info_heading',
+        get_string('info_heading', 'aiplacement_textprocessor'),
+        get_string('info_heading_desc', 'aiplacement_textprocessor')
     ));
 
     // Add the settings page to the AI section.

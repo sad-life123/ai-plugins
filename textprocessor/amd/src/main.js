@@ -396,7 +396,7 @@ const AIPTextProcessor = class {
     }
 
     /**
-     * Insert to editor.
+     * Insert to editor at cursor position.
      */
     insertToEditor() {
         const html = this.output?.value;
@@ -404,10 +404,27 @@ const AIPTextProcessor = class {
             return;
         }
 
-        // Insert into TinyMCE or textarea.
-        if (this.config.editor) {
-            this.config.editor.insertContent(html);
-        } else if (this.config.editorId) {
+        // Try TinyMCE first.
+        if (typeof tinymce !== 'undefined' && tinymce.activeEditor) {
+            tinymce.activeEditor.insertContent(html);
+            return;
+        }
+
+        // Try Atto.
+        if (this.config.editorId) {
+            const editor = Y.one('#' + this.config.editorId);
+            if (editor && editor.ancestor('.editor_atto')) {
+                // Atto editor - use its API.
+                const host = Y.M.editor_atto.EditorPanel.getEditor(this.config.editorId);
+                if (host) {
+                    host.insertContentAtFocusPoint(html);
+                    return;
+                }
+            }
+        }
+
+        // Fallback: plain textarea.
+        if (this.config.editorId) {
             const textarea = document.getElementById(this.config.editorId);
             if (textarea) {
                 const start = textarea.selectionStart;
@@ -415,8 +432,39 @@ const AIPTextProcessor = class {
                 textarea.value = textarea.value.substring(0, start) +
                                 html +
                                 textarea.value.substring(end);
+                // Move cursor after inserted content.
+                textarea.selectionStart = textarea.selectionEnd = start + html.length;
             }
         }
+    }
+
+    /**
+     * Insert HTML at current cursor position (static method for editor plugins).
+     *
+     * @param {string} html The HTML to insert
+     * @param {Object} editor The editor instance (TinyMCE or Atto)
+     */
+    static insertHtml(html, editor) {
+        if (!html) {
+            return;
+        }
+
+        // TinyMCE.
+        if (editor && typeof editor.insertContent === 'function') {
+            editor.insertContent(html);
+            return;
+        }
+
+        // Atto.
+        if (editor && typeof editor.insertContentAtFocusPoint === 'function') {
+            editor.insertContentAtFocusPoint(html);
+            return;
+        }
+
+        // Fallback: copy to clipboard.
+        navigator.clipboard.writeText(html).then(() => {
+            Notification.alert('Copied', 'HTML copied to clipboard. Paste it in the editor.');
+        });
     }
 
     /**

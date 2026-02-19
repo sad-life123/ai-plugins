@@ -28,92 +28,8 @@ use core_ai\manager;
 class utils {
 
     /**
-     * Check if textprocessor is available for the context.
-     * Shows button regardless of Ollama availability - error handling done at usage time.
-     *
-     * @param \context $context The context.
-     * @return bool True if textprocessor is available, false otherwise.
-     */
-    public static function is_textprocessor_available(\context $context): bool {
-        // Check if plugin is enabled.
-        if (!get_config('aiplacement_textprocessor', 'enabled')) {
-            return false;
-        }
-
-        // Check if user has capability.
-        return has_capability('aiplacement/textprocessor:use', $context);
-    }
-
-    /**
-     * Check if the plugin should show in edit mode only.
-     *
-     * @return bool
-     */
-    public static function show_in_edit_mode_only(): bool {
-        return (bool)get_config('aiplacement_textprocessor', 'show_in_edit_mode');
-    }
-
-    /**
-     * Get minimum course depth for showing the plugin.
-     *
-     * @return int
-     */
-    public static function get_min_course_depth(): int {
-        return (int)get_config('aiplacement_textprocessor', 'min_course_depth') ?? 0;
-    }
-
-    /**
-     * Get available actions for the context.
-     * Shows buttons based on capabilities - Ollama check happens at usage time.
-     *
-     * @param \context $context The context.
-     * @return array Array of available actions.
-     */
-    public static function get_actions_available(\context $context): array {
-        $actions = [];
-
-        // Show button if user has capability - Ollama check is done at usage time.
-        if (self::is_textprocessor_available($context)) {
-            $actions[] = [
-                'name' => 'textprocessor',
-                'title' => get_string('pluginname', 'aiplacement_textprocessor'),
-                'icon' => 'fa-text',
-            ];
-        }
-
-        return $actions;
-    }
-
-    /**
-     * Check if Ollama is configured (Moodle AI provider or local settings).
-     *
-     * @return bool
-     */
-    public static function is_ollama_configured(): bool {
-        global $DB;
-
-        // Check Moodle AI provider first.
-        try {
-            if ($DB->get_manager()->table_exists('ai_provider_instances')) {
-                $provider = $DB->get_record('ai_provider_instances', [
-                    'provider' => 'aiprovider_ollama',
-                    'enabled' => 1
-                ], 'id');
-                if (!empty($provider)) {
-                    return true;
-                }
-            }
-        } catch (\Exception $e) {
-            // AI table doesn't exist yet.
-        }
-
-        // Check local settings fallback.
-        $ollamaurl = get_config('aiplacement_textprocessor', 'ollama_url');
-        return !empty($ollamaurl);
-    }
-
-    /**
      * Check if AI Placement TextProcessor action is available for the context.
+     * Uses only AI Manager - no fallback to direct provider calls.
      *
      * @param \context $context The context.
      * @param string $actionname The name of the action.
@@ -125,36 +41,94 @@ class utils {
         string $actionname,
         string $actionclass
     ): bool {
-        // Check capability first.
-        if (!has_capability("aiplacement/textprocessor:{$actionname}", $context)) {
-            return false;
-        }
-
-        // Check if plugin is enabled.
         [$plugintype, $pluginname] = explode('_', \core_component::normalize_componentname('aiplacement_textprocessor'), 2);
         $pluginmanager = \core_plugin_manager::resolve_plugininfo_class($plugintype);
         if (!$pluginmanager::is_plugin_enabled($pluginname)) {
             return false;
         }
 
-        // Check AI manager - but don't fail if AI plugin not installed.
-        try {
-            $aimanager = \core\di::get(manager::class);
-            if (
-                $aimanager->is_action_available($actionclass)
-                && $aimanager->is_action_enabled('aiplacement_textprocessor', $actionclass)
-            ) {
-                return true;
-            }
-        } catch (\Exception $e) {
-            // AI plugin not installed - still allow if capabilities match.
-        }
-
-        // Allow if we have local Ollama settings.
-        if (self::is_ollama_configured()) {
+        $aimanager = \core\di::get(manager::class);
+        if (
+            has_capability("aiplacement/textprocessor:{$actionname}", $context)
+            && $aimanager->is_action_available($actionclass)
+            && $aimanager->is_action_enabled('aiplacement_textprocessor', $actionclass)
+        ) {
             return true;
         }
-
         return false;
+    }
+
+    /**
+     * Check if TextProcessor is available for editor integration.
+     *
+     * @param \context $context The context.
+     * @return bool True if available.
+     */
+    public static function is_available_for_editor(\context $context): bool {
+        return self::is_textprocessor_placement_action_available(
+            $context,
+            'generate_text',
+            \core_ai\aiactions\generate_text::class
+        );
+    }
+
+    /**
+     * Check if TextProcessor is available (simple check).
+     *
+     * @param \context $context The context.
+     * @return bool True if available.
+     */
+    public static function is_textprocessor_available(\context $context): bool {
+        return self::is_available_for_editor($context);
+    }
+
+    /**
+     * Check if Ollama/AI provider is configured.
+     *
+     * @return bool True if configured.
+     */
+    public static function is_ollama_configured(): bool {
+        try {
+            $aimanager = \core\di::get(manager::class);
+            // Check if any AI provider is configured.
+            return $aimanager->is_action_available(\core_ai\aiactions\generate_text::class);
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Get available processing templates.
+     *
+     * @return array Array of template info.
+     */
+    public static function get_templates(): array {
+        return [
+            'document_to_html' => [
+                'name' => get_string('template_document_to_html', 'aiplacement_textprocessor'),
+                'description' => get_string('template_document_to_html_desc', 'aiplacement_textprocessor'),
+                'icon' => '📄',
+            ],
+            'structure_headings' => [
+                'name' => get_string('template_structure_headings', 'aiplacement_textprocessor'),
+                'description' => get_string('template_structure_headings_desc', 'aiplacement_textprocessor'),
+                'icon' => '📑',
+            ],
+            'definitions_table' => [
+                'name' => get_string('template_definitions_table', 'aiplacement_textprocessor'),
+                'description' => get_string('template_definitions_table_desc', 'aiplacement_textprocessor'),
+                'icon' => '📊',
+            ],
+            'image_centering' => [
+                'name' => get_string('template_image_centering', 'aiplacement_textprocessor'),
+                'description' => get_string('template_image_centering_desc', 'aiplacement_textprocessor'),
+                'icon' => '🖼️',
+            ],
+            'custom' => [
+                'name' => get_string('template_custom', 'aiplacement_textprocessor'),
+                'description' => get_string('template_custom_desc', 'aiplacement_textprocessor'),
+                'icon' => '✏️',
+            ],
+        ];
     }
 }

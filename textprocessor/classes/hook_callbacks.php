@@ -16,9 +16,6 @@
 
 namespace aiplacement_textprocessor;
 
-use core\hook\output\after_http_headers;
-use core\hook\output\before_footer_html_generation;
-
 /**
  * Hook callbacks for the textprocessor AI Placement.
  *
@@ -29,20 +26,39 @@ use core\hook\output\before_footer_html_generation;
 class hook_callbacks {
 
     /**
-     * Bootstrap the textprocessor UI.
+     * Callback to add TextProcessor initialization script before footer.
      *
-     * @param before_footer_html_generation $hook
+     * @param \core\hook\output\before_footer_html_generation $hook
      */
-    public static function before_footer_html_generation(before_footer_html_generation $hook): void {
-        \aiplacement_textprocessor\output\textprocessor_ui::load_textprocessor_ui($hook);
+    public static function before_footer_html_generation(\core\hook\output\before_footer_html_generation $hook): void {
+        global $PAGE;
+
+        // Check if plugin is available.
+        if (!utils::is_ollama_configured()) {
+            return;
+        }
+
+        // Get context.
+        $context = $PAGE->context;
+        if (!utils::is_textprocessor_available($context)) {
+            return;
+        }
+
+        // Add JS module for editor integration.
+        $PAGE->requires->js_call_amd(
+            'aiplacement_textprocessor/editor_button',
+            'init',
+            [$context->id]
+        );
     }
 
     /**
-     * Bootstrap the action buttons.
+     * Callback to add content after HTTP headers.
      *
-     * @param after_http_headers $hook
+     * @param \core\hook\output\after_http_headers $hook
      */
-    public static function after_http_headers(after_http_headers $hook): void {
-        \aiplacement_textprocessor\output\textprocessor_ui::action_buttons_handler($hook);
+    public static function after_http_headers(\core\hook\output\after_http_headers $hook): void {
+        // This hook is kept for potential future use.
+        // Currently all initialization happens in before_footer_html_generation.
     }
 }

@@ -27,7 +27,7 @@ class context {
         global $DB;
         
         $context_parts = [];
-        $sources = get_config('coursechat', 'context_sources') ?: [];
+        $sources = get_config('aiplacement_chat', 'context_sources') ?: [];
         
         // ============================================
         // 1. 📚 СТРУКТУРА КУРСА (темы, секции)
@@ -59,7 +59,84 @@ class context {
         }
         
         // ============================================
-        // 2. 📝 АКТИВНОСТИ (задания, тесты, форумы)
+        // 2. 📄 СОДЕРЖИМОЕ СТРАНИЦ (page, lesson, label)
+        // ============================================
+        if (!empty($sources['pages'])) {
+            $page_texts = [];
+            
+            // mod_page - содержимое страниц
+            $pages = $DB->get_records_sql("
+                SELECT p.id, p.name, p.content, cs.section, cs.name as section_name
+                FROM {page} p
+                JOIN {course_modules} cm ON cm.instance = p.id
+                JOIN {modules} m ON m.id = cm.module AND m.name = 'page'
+                JOIN {course_sections} cs ON cs.id = cm.section
+                WHERE p.course = ? AND cm.visible = 1
+                ORDER BY cs.section
+            ", [$courseid]);
+            
+            foreach ($pages as $page) {
+                $content = strip_tags($page->content);
+                $content = substr($content, 0, 1000);
+                $page_texts[] = "📄 Страница \"{$page->name}\" (Тема {$page->section}):\n{$content}";
+            }
+            
+            // mod_label - текстовые метки
+            $labels = $DB->get_records_sql("
+                SELECT l.id, l.intro, cs.section
+                FROM {label} l
+                JOIN {course_modules} cm ON cm.instance = l.id
+                JOIN {modules} m ON m.id = cm.module AND m.name = 'label'
+                JOIN {course_sections} cs ON cs.id = cm.section
+                WHERE l.course = ? AND cm.visible = 1
+                ORDER BY cs.section
+            ", [$courseid]);
+            
+            foreach ($labels as $label) {
+                $content = strip_tags($label->intro);
+                if (!empty(trim($content))) {
+                    $page_texts[] = "📝 Метка (Тема {$label->section}): {$content}";
+                }
+            }
+            
+            // mod_lesson - содержимое уроков
+            $lessons = $DB->get_records_sql("
+                SELECT l.id, l.name, lp.title, lp.contents
+                FROM {lesson} l
+                JOIN {course_modules} cm ON cm.instance = l.id
+                JOIN {modules} m ON m.id = cm.module AND m.name = 'lesson'
+                LEFT JOIN {lesson_pages} lp ON lp.lessonid = l.id
+                WHERE l.course = ? AND cm.visible = 1
+                ORDER BY l.id, lp.ordering
+            ", [$courseid]);
+            
+            $current_lesson = null;
+            $lesson_content = [];
+            foreach ($lessons as $lessonpage) {
+                if ($current_lesson !== $lessonpage->id) {
+                    if (!empty($lesson_content) && $current_lesson !== null) {
+                        $page_texts[] = "📚 Урок: " . implode("\n", $lesson_content);
+                    }
+                    $current_lesson = $lessonpage->id;
+                    $lesson_content = ["\"{$lessonpage->name}\""];
+                }
+                if (!empty($lessonpage->title)) {
+                    $content = strip_tags($lessonpage->contents ?? '');
+                    $content = substr($content, 0, 500);
+                    $lesson_content[] = "  - {$lessonpage->title}: {$content}";
+                }
+            }
+            if (!empty($lesson_content)) {
+                $page_texts[] = "📚 Урок: " . implode("\n", $lesson_content);
+            }
+            
+            if (!empty($page_texts)) {
+                $context_parts[] = "📄 СОДЕРЖИМОЕ СТРАНИЦ:\n" . implode("\n\n", $page_texts);
+            }
+        }
+        
+        // ============================================
+        // 3. 📝 АКТИВНОСТИ (задания, тесты, форумы)
         // ============================================
         if (!empty($sources['activities'])) {
             $modules = $DB->get_records_sql("
@@ -94,7 +171,7 @@ class context {
         }
         
         // ============================================
-        // 3. 📄 ФАЙЛЫ КУРСА (PDF, DOCX, TXT)
+        // 4. 📄 ФАЙЛЫ КУРСА (PDF, DOCX, TXT)
         // ============================================
         if (!empty($sources['files'])) {
             $fs = get_file_storage();
@@ -155,7 +232,7 @@ class context {
         }
         
         // ============================================
-        // 4. 📊 ОЦЕНКИ СТУДЕНТА (личный контекст)
+        // 5. 📊 ОЦЕНКИ СТУДЕНТА (личный контекст)
         // ============================================
         if (!empty($sources['grades']) && $userid > 0) {
             $grades = $DB->get_records_sql("
@@ -182,7 +259,7 @@ class context {
         $full_context = implode("\n\n", $context_parts);
         
         // Ограничиваем длину
-        $max_length = get_config('coursechat', 'max_context_length') ?: 8000;
+        $max_length = get_config('aiplacement_chat', 'max_context_length') ?: 8000;
         if (strlen($full_context) > $max_length) {
             $full_context = substr($full_context, 0, $max_length) . "...";
         }

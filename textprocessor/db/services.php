@@ -14,15 +14,22 @@
 // You should have received a copy of the GNU General Public License
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
+/**
+ * TextProcessor AI Placement webservice definitions.
+ *
+ * @package    aiplacement_textprocessor
+ * @copyright  2025
+ * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
+ */
+
 defined('MOODLE_INTERNAL') || die();
 
 $functions = [
     'aiplacement_textprocessor_process' => [
-        'classname' => 'aiplacement_textprocessor\external\process',
-        'methodname' => 'execute',
-        'description' => 'Process text with AI',
+        'classname' => \aiplacement_textprocessor\external\process::class,
+        'description' => 'Process text or file content and convert to structured HTML',
         'type' => 'write',
         'ajax' => true,
-        'capabilities' => 'aiplacement/textprocessor:use'
-    ]
+        'services' => [MOODLE_OFFICIAL_MOBILE_SERVICE],
+    ],
 ];

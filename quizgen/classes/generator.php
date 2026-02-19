@@ -66,7 +66,7 @@ class generator {
             
             return [
                 'success' => true,
-                'questions' => $questions,
+                'questions' => json_encode($questions),
                 'count' => count($questions),
                 'model' => $response['model'] ?? 'unknown',
                 'time' => $time

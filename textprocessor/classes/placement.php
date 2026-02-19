@@ -16,8 +16,6 @@
 
 namespace aiplacement_textprocessor;
 
-use core_ai\placement as base_placement;
-
 /**
  * Class placement.
  *
@@ -25,27 +23,15 @@ use core_ai\placement as base_placement;
  * @copyright  2025
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
-class placement extends base_placement {
-
+class placement extends \core_ai\placement {
     /**
-     * Get the actions that this placement supports.
+     * Get the list of actions that this placement uses.
      *
      * @return array An array of action class names.
      */
-    #[\Override]
     public static function get_action_list(): array {
         return [
             \core_ai\aiactions\generate_text::class,
         ];
-    }
-
-    /**
-     * Get placement name.
-     *
-     * @return string
-     */
-    #[\Override]
-    public static function get_name(): string {
-        return 'textprocessor';
     }
 }

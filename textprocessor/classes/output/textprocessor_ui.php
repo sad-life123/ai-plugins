@@ -30,24 +30,6 @@ use core\hook\output\before_footer_html_generation;
 class textprocessor_ui {
 
     /**
-     * Store the generated uniqid to ensure consistency between UI and buttons.
-     * @var string|null
-     */
-    private static $currentUniqid = null;
-
-    /**
-     * Get or generate a consistent uniqid for this request.
-     *
-     * @return string
-     */
-    private static function get_uniqid(): string {
-        if (self::$currentUniqid === null) {
-            self::$currentUniqid = uniqid('tp_');
-        }
-        return self::$currentUniqid;
-    }
-
-    /**
      * Bootstrap the textprocessor UI.
      *
      * @param before_footer_html_generation $hook
@@ -60,21 +42,17 @@ class textprocessor_ui {
             return;
         }
 
-        // Check Ollama status.
-        $ollamastatus = utils::is_ollama_configured();
-
         // Get consistent uniqid.
-        $uniqid = self::get_uniqid();
+        $uniqid = uniqid('tp_');
 
         // Load the drawer template with textprocessor content inside.
         $params = [
             'uniqid' => $uniqid,
             'userid' => $USER->id,
             'contextid' => $PAGE->context->id,
-            'ollama_status' => $ollamastatus,
+            'ollama_status' => true,
             'config' => json_encode([
                 'contextid' => $PAGE->context->id,
-                'ollama_configured' => $ollamastatus,
             ]),
         ];
         $html = $OUTPUT->render_from_template('aiplacement_textprocessor/drawer', $params);
@@ -88,29 +66,7 @@ class textprocessor_ui {
      * @param after_http_headers $hook
      */
     public static function action_buttons_handler(after_http_headers $hook): void {
-        global $PAGE, $OUTPUT;
-
-        // Preflight checks.
-        if (!self::preflight_checks()) {
-            return;
-        }
-
-        $actions['actions'] = utils::get_actions_available($PAGE->context);
-
-        // No actions available.
-        if (empty($actions['actions'])) {
-            return;
-        }
-
-        // Use consistent uniqid.
-        $actions['uniqid'] = self::get_uniqid();
-
-        if (count($actions['actions']) > 1) {
-            $actions['isdropdown'] = true;
-        }
-
-        $html = $OUTPUT->render_from_template('aiplacement_textprocessor/actions', $actions);
-        $hook->add_html($html);
+        // TextProcessor uses TinyMCE integration, no buttons on course page.
     }
 
     /**
@@ -134,12 +90,7 @@ class textprocessor_ui {
             return false;
         }
 
-        // TextProcessor should only show in edit mode (can be disabled in settings).
-        if (utils::show_in_edit_mode_only() && !$PAGE->user_is_editing()) {
-            return false;
-        }
-
         // Check if the user has permission to use the textprocessor.
-        return utils::is_textprocessor_available($PAGE->context);
+        return has_capability('aiplacement/textprocessor:generate_text', $PAGE->context);
     }
 }
