@@ -1,217 +1,142 @@
-/* /ai/placement/textprocessor/styles.css */
+/* AI TextProcessor Styles */
 
-/* ========== AI DRAWER STYLES ========== */
-/* Based on Moodle's standard AI drawer pattern */
-
-/* The drawer container - matches courseassist */
-.ai-drawer {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 450px;
-    max-width: 100%;
-    background: #fff;
-    box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-    z-index: 1000;
-    display: none;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.3s ease;
+/* ========== ATTO BUTTON ========== */
+.atto_group.ai_tools {
+    display: inline-block;
 }
 
-.ai-drawer.show {
-    display: flex;
-    transform: translateX(0);
-}
-
-/* Drawer header */
-.ai-drawer-header {
-    display: flex;
-    justify-content: flex-end;
-    padding: 12px 16px;
-    border-bottom: 1px solid #dee2e6;
-    background: #f8f9fa;
-}
-
-.ai-drawer-button {
-    padding: 8px;
-    background: transparent;
+.atto_ai_textprocessor_button {
+    display: inline-block;
+    padding: 4px 6px;
     border: none;
+    background: transparent;
     cursor: pointer;
     border-radius: 4px;
+    transition: background-color 0.2s;
 }
 
-.ai-drawer-button:hover {
-    background: #e9ecef;
+.atto_ai_textprocessor_button:hover {
+    background-color: #e9ecef;
 }
 
-/* Drawer body */
-.ai-drawer-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 0;
+.atto_ai_textprocessor_button .icon {
+    font-size: 16px;
+    line-height: 1;
 }
 
-/* ========== TEXTPROCESSOR CONTENT IN DRAWER ========== */
+/* ========== TINYMCE BUTTON ========== */
+/* TinyMCE buttons are styled by TinyMCE itself */
+/* The button uses the 'format' icon from TinyMCE */
 
+/* ========== MODAL DIALOG ========== */
+.textprocessor-dialog {
+    padding: 1rem;
+}
+
+.textprocessor-dialog .form-label {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.textprocessor-dialog .form-control {
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9375rem;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.textprocessor-dialog .form-control:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    outline: none;
+}
+
+.textprocessor-dialog textarea.form-control {
+    resize: vertical;
+    min-height: 120px;
+}
+
+.textprocessor-dialog input[type="file"].form-control {
+    padding: 0.375rem 0.75rem;
+}
+
+.textprocessor-dialog .form-text {
+    font-size: 0.8125rem;
+    color: #6c757d;
+    margin-top: 0.25rem;
+}
+
+.textprocessor-dialog .textprocessor-loading {
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+}
+
+.textprocessor-dialog .textprocessor-loading .spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+.textprocessor-dialog .textprocessor-info {
+    background: #f8f9fa;
+    border-radius: 0.375rem;
+    padding: 0.75rem 1rem;
+}
+
+.textprocessor-dialog .textprocessor-info small {
+    line-height: 1.5;
+}
+
+/* ========== DRAWER CONTENT (fallback) ========== */
 .textprocessor-drawer-content {
     display: flex;
     flex-direction: column;
-    height: 100%;
-    padding: 16px;
+    padding: 1rem;
+    gap: 1rem;
 }
 
-.textprocessor-header {
-    margin-bottom: 16px;
-}
-
-.textprocessor-header h3 {
+.textprocessor-drawer-content .textprocessor-header h5 {
     margin: 0;
-    font-size: 18px;
+    font-size: 1.125rem;
     font-weight: 600;
 }
 
-.textprocessor-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 16px;
-}
-
-.textprocessor-btn {
-    padding: 8px 12px;
-    border: 1px solid #ced4da;
-    border-radius: 4px;
-    background: #fff;
-    cursor: pointer;
-    font-size: 14px;
-    transition: all 0.2s;
-}
-
-.textprocessor-btn:hover:not(:disabled) {
-    background: #e9ecef;
-}
-
-.textprocessor-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-.textprocessor-btn.active {
-    background: #0d6efd;
-    color: white;
-    border-color: #0d6efd;
-}
-
-.textprocessor-input-area,
-.textprocessor-output-area {
-    margin-bottom: 12px;
-}
-
-.textprocessor-input,
-.textprocessor-output {
+.textprocessor-drawer-content .textprocessor-input,
+.textprocessor-drawer-content .textprocessor-output {
     width: 100%;
-    padding: 12px;
+    padding: 0.75rem;
     border: 1px solid #ced4da;
-    border-radius: 4px;
-    font-size: 14px;
+    border-radius: 0.375rem;
+    font-size: 0.9375rem;
     font-family: inherit;
     resize: vertical;
     box-sizing: border-box;
 }
 
-.textprocessor-input:focus,
-.textprocessor-output:focus {
+.textprocessor-drawer-content .textprocessor-input:focus,
+.textprocessor-drawer-content .textprocessor-output:focus {
     outline: none;
     border-color: #0d6efd;
     box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
 }
 
-.textprocessor-output {
+.textprocessor-drawer-content .textprocessor-output {
     background: #f8f9fa;
 }
 
-.textprocessor-actions {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 16px;
+.textprocessor-drawer-content .btn {
+    white-space: nowrap;
 }
 
-.textprocessor-process-btn {
-    flex: 1;
-}
-
-.textprocessor-copy-btn,
-.textprocessor-insert-btn {
-    flex: 0 0 auto;
-}
-
-.textprocessor-preview {
-    padding: 12px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    border-radius: 4px;
-    min-height: 100px;
-}
-
-.textprocessor-preview h1,
-.textprocessor-preview h2,
-.textprocessor-preview h3,
-.textprocessor-preview h4,
-.textprocessor-preview h5,
-.textprocessor-preview h6 {
-    margin-top: 0;
-}
-
-.textprocessor-preview table {
-    border-collapse: collapse;
-    width: 100%;
-    margin-bottom: 1rem;
-}
-
-.textprocessor-preview table th,
-.textprocessor-preview table td {
-    border: 1px solid #dee2e6;
-    padding: 8px;
-}
-
-.textprocessor-preview table th {
-    background: #f8f9fa;
-}
-
-/* ========== CONTROLS (Action buttons) ========== */
-
-.ai-textprocessor-controls {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.ai-textprocessor-controls .ai-action {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-
-.ai-textprocessor-controls .ai-action:focus {
-    outline: 2px solid #0d6efd;
-    outline-offset: 2px;
-}
-
-/* ========== PAGE PADDING FOR DRAWER ========== */
-
-/* When drawer is open, add padding to the page */
-body.show-drawer-right #page {
-    padding-right: 450px;
-}
-
-@media (max-width: 768px) {
-    .ai-drawer {
-        width: 100%;
+/* ========== RESPONSIVE ========== */
+@media (max-width: 576px) {
+    .textprocessor-dialog {
+        padding: 0.75rem;
     }
-    
-    body.show-drawer-right #page {
-        padding-right: 0;
+
+    .textprocessor-dialog textarea.form-control {
+        min-height: 100px;
     }
 }

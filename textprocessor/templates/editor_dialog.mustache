@@ -17,74 +17,55 @@
 {{!
     @template aiplacement_textprocessor/editor_dialog
 
-    Template for the TextProcessor dialog in editors.
+    Simple dialog for TextProcessor - single unified action.
 
     Context variables:
     * contextid - Context ID
-    * templates - Array of template options
 
     Example context (json):
     {
-        "contextid": 1,
-        "templates": [
-            {"value": "document_to_html", "name": "Document to HTML", "selected": true}
-        ]
+        "contextid": 1
     }
 }}
 <div class="textprocessor-dialog">
-    <div class="textprocessor-loading hidden text-center p-3">
-        <span class="spinner-border spinner-border-sm" role="status"></span>
+    <div class="textprocessor-loading hidden text-center p-3 mb-3">
+        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
         {{#str}}processing, aiplacement_textprocessor{{/str}}
     </div>
 
     <div class="textprocessor-form">
-        <!-- Template Selection -->
-        <div class="form-group mb-3">
-            <label for="textprocessor-template" class="font-weight-bold">
-                {{#str}}template, aiplacement_textprocessor{{/str}}
-            </label>
-            <select name="template" id="textprocessor-template" class="form-control">
-                {{#templates}}
-                <option value="{{value}}" {{#selected}}selected{{/selected}}>{{name}}</option>
-                {{/templates}}
-            </select>
-        </div>
-
-        <!-- Custom Prompt (hidden by default) -->
-        <div class="form-group mb-3 hidden">
-            <label for="textprocessor-customprompt" class="font-weight-bold">
-                {{#str}}customprompt, aiplacement_textprocessor{{/str}}
-            </label>
-            <textarea name="customprompt" id="textprocessor-customprompt" 
-                class="form-control" rows="3"
-                placeholder="{{#str}}customprompt_placeholder, aiplacement_textprocessor{{/str}}"></textarea>
-        </div>
-
         <!-- File Upload -->
-        <div class="form-group mb-3">
-            <label for="textprocessor-file" class="font-weight-bold">
+        <div class="mb-4">
+            <label for="textprocessor-file" class="form-label fw-bold">
                 {{#str}}upload_file, aiplacement_textprocessor{{/str}}
             </label>
             <input type="file" name="file" id="textprocessor-file" 
-                class="form-control-file"
+                class="form-control"
                 accept=".pdf,.docx,.doc,.txt,.rtf">
             <small class="form-text text-muted">
                 {{#str}}supported_files, aiplacement_textprocessor{{/str}}
             </small>
         </div>
 
-        <div class="text-center text-muted mb-2">
+        <div class="text-center text-muted mb-3">
             — {{#str}}or, core{{/str}} —
         </div>
 
         <!-- Text Input -->
-        <div class="form-group mb-3">
-            <label for="textprocessor-text" class="font-weight-bold">
+        <div class="mb-3">
+            <label for="textprocessor-text" class="form-label fw-bold">
                 {{#str}}text_input, aiplacement_textprocessor{{/str}}
             </label>
             <textarea name="text" id="textprocessor-text" 
-                class="form-control" rows="6"
+                class="form-control" rows="8"
                 placeholder="{{#str}}text_input_placeholder, aiplacement_textprocessor{{/str}}"></textarea>
         </div>
+    </div>
+
+    <div class="textprocessor-info mt-3 p-3 bg-light rounded">
+        <small class="text-muted">
+            <strong>{{#str}}process_info_title, aiplacement_textprocessor{{/str}}</strong><br>
+            {{#str}}process_info_desc, aiplacement_textprocessor{{/str}}
+        </small>
     </div>
 </div>

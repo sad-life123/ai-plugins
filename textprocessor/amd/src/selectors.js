@@ -14,7 +14,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Define all of the selectors we will be using on the AI TextProcessor plugin.
+ * Selectors for AI TextProcessor plugin (drawer mode).
  *
  * @module     aiplacement_textprocessor/selectors
  * @copyright  2025
@@ -23,23 +23,11 @@
 define([], function() {
     return {
         ELEMENTS: {
-            AIDRAWER: '#ai-drawer-textprocessor',
-            AIDRAWER_BODY: '#ai-drawer-textprocessor .ai-drawer-body',
-            PAGE: '#page',
-            AIDRAWER_CLOSE: '#ai-drawer-close-textprocessor',
             TEXTPROCESSOR_CONTAINER: '.textprocessor-drawer-content',
             TEXTPROCESSOR_INPUT: '.textprocessor-input',
             TEXTPROCESSOR_OUTPUT: '.textprocessor-output',
-            TEXTPROCESSOR_PREVIEW: '.textprocessor-preview',
             TEXTPROCESSOR_PROCESS_BTN: '.textprocessor-process-btn',
             TEXTPROCESSOR_COPY_BTN: '.textprocessor-copy-btn',
-            TEXTPROCESSOR_INSERT_BTN: '.textprocessor-insert-btn',
-            TEXTPROCESSOR_ACTION_BTN: '.textprocessor-action-btn',
-            JUMPTO: '.ai-textprocessor-controls [data-region="jumpto"]',
-            ACTION: '.ai-textprocessor-controls [data-input-type="action"]',
-        },
-        ACTIONS: {
-            TEXTPROCESSOR_OPEN: '.ai-textprocessor-controls [data-action="textprocessor"]',
         }
     };
 });

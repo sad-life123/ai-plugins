@@ -17,37 +17,17 @@
 defined('MOODLE_INTERNAL') || die();
 
 if ($hassiteconfig) {
-    // Create settings page for the plugin.
     $settings = new admin_settingpage(
         'aiplacement_textprocessor',
         get_string('pluginname', 'aiplacement_textprocessor'),
         'moodle/site:config'
     );
 
-    // ============================================
-    // 📝 TEXT PROCESSING SETTINGS
-    // ============================================
-    $settings->add(new admin_setting_heading('processing_heading',
-        get_string('processing_heading', 'aiplacement_textprocessor'),
-        get_string('processing_heading_desc', 'aiplacement_textprocessor')
-    ));
-
-    $settings->add(new admin_setting_configtextarea(
-        'aiplacement_textprocessor/custom_prompt',
-        get_string('custom_prompt', 'aiplacement_textprocessor'),
-        get_string('custom_prompt_desc', 'aiplacement_textprocessor'),
-        '',
-        PARAM_TEXT
-    ));
-
-    // ============================================
-    // ℹ️ INFO
-    // ============================================
+    // Information only - all configuration is in AI Manager.
     $settings->add(new admin_setting_heading('info_heading',
         get_string('info_heading', 'aiplacement_textprocessor'),
         get_string('info_heading_desc', 'aiplacement_textprocessor')
     ));
 
-    // Add the settings page to the AI section.
     $ADMIN->add('ai', $settings);
 }

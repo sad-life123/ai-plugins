@@ -17,11 +17,7 @@
 {{!
     @template aiplacement_textprocessor/textprocessor_content
 
-    Template to display the text processor content inside the AI drawer.
-
-    Context variables required for this template:
-    * uniqid - Unique ID
-    * ollama_status - Ollama configuration status
+    Simple content for TextProcessor drawer.
 
     Example context (json):
     {
@@ -31,63 +27,66 @@
 }}
 <div id="textprocessor-ui-{{uniqid}}" class="textprocessor-drawer-content">
     
-    <div class="textprocessor-header">
-        <h3>{{#str}}pluginname, aiplacement_textprocessor{{/str}}</h3>
+    <div class="textprocessor-header mb-3">
+        <h5>{{#str}}pluginname, aiplacement_textprocessor{{/str}}</h5>
     </div>
     
     {{^ollama_status}}
-    <div class="alert alert-warning m-3">
+    <div class="alert alert-warning">
         ⚠️ {{#str}}ollama_not_configured, aiplacement_textprocessor{{/str}}
     </div>
     {{/ollama_status}}
     
-    <div class="textprocessor-toolbar">
-        <button class="textprocessor-btn textprocessor-action-btn active" data-action="to_html" {{^ollama_status}}disabled{{/ollama_status}}>
-            📄 {{#str}}to_html, aiplacement_textprocessor{{/str}}
-        </button>
-        <button class="textprocessor-btn textprocessor-action-btn" data-action="from_markdown" {{^ollama_status}}disabled{{/ollama_status}}>
-            🔗 {{#str}}from_markdown, aiplacement_textprocessor{{/str}}
-        </button>
-        <button class="textprocessor-btn textprocessor-action-btn" data-action="to_table" {{^ollama_status}}disabled{{/ollama_status}}>
-            📊 {{#str}}to_table, aiplacement_textprocessor{{/str}}
-        </button>
-        <button class="textprocessor-btn textprocessor-action-btn" data-action="clean_html" {{^ollama_status}}disabled{{/ollama_status}}>
-            ✨ {{#str}}clean_html, aiplacement_textprocessor{{/str}}
-        </button>
+    <div class="mb-3">
+        <label for="textprocessor-input-{{uniqid}}" class="form-label fw-bold">
+            {{#str}}upload_file, aiplacement_textprocessor{{/str}}
+        </label>
+        <input type="file" 
+            id="textprocessor-file-{{uniqid}}"
+            class="form-control"
+            accept=".pdf,.docx,.doc,.txt,.rtf"
+            {{^ollama_status}}disabled{{/ollama_status}}>
+        <small class="form-text text-muted">
+            {{#str}}supported_files, aiplacement_textprocessor{{/str}}
+        </small>
     </div>
+
+    <div class="text-center text-muted mb-2">— {{#str}}or, core{{/str}} —</div>
     
-    <div class="textprocessor-input-area">
-        <label for="textprocessor-input-{{uniqid}}" class="visually-hidden">{{#str}}input_label, aiplacement_textprocessor{{/str}}</label>
+    <div class="mb-3">
+        <label for="textprocessor-input-{{uniqid}}" class="form-label fw-bold">
+            {{#str}}text_input, aiplacement_textprocessor{{/str}}
+        </label>
         <textarea 
             id="textprocessor-input-{{uniqid}}"
-            class="textprocessor-input" 
+            class="form-control textprocessor-input" 
             rows="6"
-            placeholder="{{#str}}input_placeholder, aiplacement_textprocessor{{/str}}"
+            placeholder="{{#str}}text_input_placeholder, aiplacement_textprocessor{{/str}}"
             {{^ollama_status}}disabled{{/ollama_status}}></textarea>
     </div>
     
-    <div class="textprocessor-actions">
-        <button class="textprocessor-btn textprocessor-process-btn btn-primary" {{^ollama_status}}disabled{{/ollama_status}}>
+    <div class="mb-3">
+        <button class="btn btn-primary textprocessor-process-btn" {{^ollama_status}}disabled{{/ollama_status}}>
             ✨ {{#str}}process, aiplacement_textprocessor{{/str}}
-        </button>
-        <button class="textprocessor-btn textprocessor-copy-btn btn-outline-secondary" {{^ollama_status}}disabled{{/ollama_status}}>
-            📋 {{#str}}copy, aiplacement_textprocessor{{/str}}
-        </button>
-        <button class="textprocessor-btn textprocessor-insert-btn btn-outline-secondary" {{^ollama_status}}disabled{{/ollama_status}}>
-            📝 {{#str}}insert, aiplacement_textprocessor{{/str}}
         </button>
     </div>
     
-    <div class="textprocessor-output-area">
-        <label for="textprocessor-output-{{uniqid}}" class="visually-hidden">{{#str}}output_label, aiplacement_textprocessor{{/str}}</label>
+    <div class="textprocessor-output-area mb-3">
+        <label for="textprocessor-output-{{uniqid}}" class="form-label fw-bold">
+            {{#str}}output_label, aiplacement_textprocessor{{/str}}
+        </label>
         <textarea 
             id="textprocessor-output-{{uniqid}}"
-            class="textprocessor-output" 
+            class="form-control textprocessor-output" 
             rows="8"
             readonly
             placeholder="{{#str}}output_placeholder, aiplacement_textprocessor{{/str}}"></textarea>
     </div>
-    
-    <div class="textprocessor-preview"></div>
+
+    <div class="textprocessor-actions">
+        <button class="btn btn-outline-secondary textprocessor-copy-btn" disabled>
+            📋 {{#str}}copy, aiplacement_textprocessor{{/str}}
+        </button>
+    </div>
     
 </div>

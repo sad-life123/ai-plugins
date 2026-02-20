@@ -27,38 +27,29 @@ class hook_callbacks {
 
     /**
      * Callback to add TextProcessor initialization script before footer.
+     * This loads the JS module that integrates with TinyMCE and Atto editors.
      *
      * @param \core\hook\output\before_footer_html_generation $hook
      */
     public static function before_footer_html_generation(\core\hook\output\before_footer_html_generation $hook): void {
         global $PAGE;
 
-        // Check if plugin is available.
+        // Check if AI provider is configured.
         if (!utils::is_ollama_configured()) {
             return;
         }
 
-        // Get context.
+        // Check if plugin is available in current context.
         $context = $PAGE->context;
         if (!utils::is_textprocessor_available($context)) {
             return;
         }
 
-        // Add JS module for editor integration.
+        // Load JS module for editor integration.
         $PAGE->requires->js_call_amd(
             'aiplacement_textprocessor/editor_button',
             'init',
             [$context->id]
         );
-    }
-
-    /**
-     * Callback to add content after HTTP headers.
-     *
-     * @param \core\hook\output\after_http_headers $hook
-     */
-    public static function after_http_headers(\core\hook\output\after_http_headers $hook): void {
-        // This hook is kept for potential future use.
-        // Currently all initialization happens in before_footer_html_generation.
     }
 }

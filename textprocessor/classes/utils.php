@@ -29,7 +29,6 @@ class utils {
 
     /**
      * Check if AI Placement TextProcessor action is available for the context.
-     * Uses only AI Manager - no fallback to direct provider calls.
      *
      * @param \context $context The context.
      * @param string $actionname The name of the action.
@@ -41,12 +40,14 @@ class utils {
         string $actionname,
         string $actionclass
     ): bool {
+        // Check if plugin is enabled.
         [$plugintype, $pluginname] = explode('_', \core_component::normalize_componentname('aiplacement_textprocessor'), 2);
         $pluginmanager = \core_plugin_manager::resolve_plugininfo_class($plugintype);
         if (!$pluginmanager::is_plugin_enabled($pluginname)) {
             return false;
         }
 
+        // Check AI manager availability and permissions.
         $aimanager = \core\di::get(manager::class);
         if (
             has_capability("aiplacement/textprocessor:{$actionname}", $context)
@@ -64,7 +65,7 @@ class utils {
      * @param \context $context The context.
      * @return bool True if available.
      */
-    public static function is_available_for_editor(\context $context): bool {
+    public static function is_textprocessor_available(\context $context): bool {
         return self::is_textprocessor_placement_action_available(
             $context,
             'generate_text',
@@ -73,62 +74,16 @@ class utils {
     }
 
     /**
-     * Check if TextProcessor is available (simple check).
-     *
-     * @param \context $context The context.
-     * @return bool True if available.
-     */
-    public static function is_textprocessor_available(\context $context): bool {
-        return self::is_available_for_editor($context);
-    }
-
-    /**
-     * Check if Ollama/AI provider is configured.
+     * Check if AI provider is configured.
      *
      * @return bool True if configured.
      */
     public static function is_ollama_configured(): bool {
         try {
             $aimanager = \core\di::get(manager::class);
-            // Check if any AI provider is configured.
             return $aimanager->is_action_available(\core_ai\aiactions\generate_text::class);
         } catch (\Exception $e) {
             return false;
         }
-    }
-
-    /**
-     * Get available processing templates.
-     *
-     * @return array Array of template info.
-     */
-    public static function get_templates(): array {
-        return [
-            'document_to_html' => [
-                'name' => get_string('template_document_to_html', 'aiplacement_textprocessor'),
-                'description' => get_string('template_document_to_html_desc', 'aiplacement_textprocessor'),
-                'icon' => '📄',
-            ],
-            'structure_headings' => [
-                'name' => get_string('template_structure_headings', 'aiplacement_textprocessor'),
-                'description' => get_string('template_structure_headings_desc', 'aiplacement_textprocessor'),
-                'icon' => '📑',
-            ],
-            'definitions_table' => [
-                'name' => get_string('template_definitions_table', 'aiplacement_textprocessor'),
-                'description' => get_string('template_definitions_table_desc', 'aiplacement_textprocessor'),
-                'icon' => '📊',
-            ],
-            'image_centering' => [
-                'name' => get_string('template_image_centering', 'aiplacement_textprocessor'),
-                'description' => get_string('template_image_centering_desc', 'aiplacement_textprocessor'),
-                'icon' => '🖼️',
-            ],
-            'custom' => [
-                'name' => get_string('template_custom', 'aiplacement_textprocessor'),
-                'description' => get_string('template_custom_desc', 'aiplacement_textprocessor'),
-                'icon' => '✏️',
-            ],
-        ];
     }
 }

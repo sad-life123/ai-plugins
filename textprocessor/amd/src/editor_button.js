@@ -15,6 +15,7 @@
 
 /**
  * TextProcessor integration for TinyMCE and Atto editors.
+ * Pure JS approach - no PHP editor plugins needed.
  *
  * @module     aiplacement_textprocessor/editor_button
  * @copyright  2025
@@ -23,18 +24,18 @@
 
 define([
     'core/modal_save_cancel',
-    'core/str',
+    'core/modal_events',
     'core/ajax',
     'core/notification',
     'core/templates',
-    'core/modal_events'
+    'core/str'
 ], function(
     ModalSaveCancel,
-    Str,
+    ModalEvents,
     Ajax,
     Notification,
     Templates,
-    ModalEvents
+    Str
 ) {
 
     /**
@@ -42,6 +43,12 @@ define([
      * @type {Object}
      */
     let currentEditor = null;
+
+    /**
+     * Editor type: 'tinymce' or 'atto'.
+     * @type {String}
+     */
+    let editorType = null;
 
     /**
      * Current context ID.
@@ -62,191 +69,302 @@ define([
      * @param {Number} ctxid Context ID
      */
     function init(ctxid) {
+        console.log('TextProcessor: init() called with contextId:', ctxid);
         contextId = ctxid;
-        setupEditorIntegration();
-    }
 
-    /**
-     * Setup editor integration with proper timing.
-     */
-    function setupEditorIntegration() {
-        // Try to register TinyMCE plugin immediately if TinyMCE is already loaded.
-        if (typeof tinymce !== 'undefined') {
-            registerTinyMCEPlugin();
+        // Wait for editors to be ready.
+        if (typeof M !== 'undefined' && M.util && M.util.js_pending) {
+            M.util.js_pending('aiplacement_textprocessor_init');
         }
 
-        // Setup Atto buttons if Atto is already loaded.
-        if (document.querySelector('.editor_atto_toolbar')) {
-            setupAttoButtons();
-        }
+        // Setup both editors.
+        console.log('TextProcessor: Setting up TinyMCE...');
+        setupTinyMCE();
+        console.log('TextProcessor: Setting up Atto...');
+        setupAtto();
 
-        // Use MutationObserver to detect when editors are added to the page.
-        const observer = new MutationObserver(function(mutations) {
-            mutations.forEach(function(mutation) {
-                // Check for Atto editor toolbars.
-                if (mutation.target.classList && mutation.target.classList.contains('editor_atto_toolbar')) {
-                    setupAttoButtons();
-                }
-                // Check for TinyMCE iframes.
-                if (mutation.target.id && mutation.target.id.indexOf('tinymce') !== -1) {
-                    registerTinyMCEPlugin();
-                }
-            });
-        });
-        observer.observe(document.body, {childList: true, subtree: true});
-
-        // Also use Moodle's pending/complete system for proper timing.
-        if (typeof window.M !== 'undefined' && window.M.util && window.M.util.js_pending) {
-            window.M.util.js_pending('aiplacement_textprocessor_init');
+        if (typeof M !== 'undefined' && M.util && M.util.js_complete) {
             setTimeout(function() {
-                registerTinyMCEPlugin();
-                setupAttoButtons();
-                if (window.M.util.js_complete) {
-                    window.M.util.js_complete('aiplacement_textprocessor_init');
-                }
+                M.util.js_complete('aiplacement_textprocessor_init');
             }, 500);
         }
+        console.log('TextProcessor: init() completed');
     }
 
     /**
-     * Register TinyMCE plugin for TextProcessor.
+     * Setup TinyMCE integration.
      */
-    function registerTinyMCEPlugin() {
+    function setupTinyMCE() {
+        // Check if TinyMCE is already loaded.
+        if (typeof tinymce !== 'undefined' && tinymce.EditorManager) {
+            addButtonsToTinyMCEEditors();
+            setupTinyMCEObserver();
+            return;
+        }
+
+        // Wait for TinyMCE to load.
+        let attempts = 0;
+        const maxAttempts = 50; // 10 seconds max.
+
+        const checkTinyMCE = setInterval(function() {
+            attempts++;
+
+            if (typeof tinymce !== 'undefined' && tinymce.EditorManager) {
+                clearInterval(checkTinyMCE);
+                addButtonsToTinyMCEEditors();
+                setupTinyMCEObserver();
+            } else if (attempts >= maxAttempts) {
+                clearInterval(checkTinyMCE);
+            }
+        }, 200);
+    }
+
+    /**
+     * Setup observer for new TinyMCE editors.
+     */
+    function setupTinyMCEObserver() {
+        if (typeof tinymce === 'undefined' || !tinymce.EditorManager) {
+            return;
+        }
+
+        // Listen for new editors.
+        tinymce.EditorManager.on('AddEditor', function(e) {
+            setTimeout(function() {
+                addTinyMCEButton(e.editor);
+            }, 100);
+        });
+    }
+
+    /**
+     * Add buttons to all existing TinyMCE editors.
+     */
+    function addButtonsToTinyMCEEditors() {
         if (typeof tinymce === 'undefined') {
             return;
         }
 
-        // Check if already registered.
-        if (tinymce.PluginManager.lookup['aiplacement_textprocessor']) {
+        // Try different ways to get editors (TinyMCE 5/6/7 compatibility).
+        let editors = null;
+        if (tinymce.EditorManager && tinymce.EditorManager.editors) {
+            editors = tinymce.EditorManager.editors;
+        } else if (tinymce.editors) {
+            editors = tinymce.editors;
+        }
+
+        if (!editors) {
             return;
         }
 
-        // Register the plugin.
-        tinymce.PluginManager.add('aiplacement_textprocessor', function(editor) {
-            // Add button to toolbar.
-            editor.ui.registry.addButton('aiplacement_textprocessor', {
-                icon: 'format',
-                tooltip: 'AI TextProcessor',
-                onAction: function() {
-                    currentEditor = editor;
-                    openDialog();
-                }
-            });
-
-            // Add to menu.
-            editor.ui.registry.addMenuItem('aiplacement_textprocessor', {
-                icon: 'format',
-                text: 'AI TextProcessor',
-                onAction: function() {
-                    currentEditor = editor;
-                    openDialog();
-                }
-            });
-        });
-
-        // Add button to already initialized editors.
-        if (tinymce.EditorManager && tinymce.EditorManager.editors) {
-            tinymce.EditorManager.editors.forEach(function(editor) {
-                if (editor.ui.registry && editor.ui.registry.getAll &&
-                    !editor.ui.registry.getAll().buttons.aiplacement_textprocessor) {
-                    editor.ui.registry.addButton('aiplacement_textprocessor', {
-                        icon: 'format',
-                        tooltip: 'AI TextProcessor',
-                        onAction: function() {
-                            currentEditor = editor;
-                            openDialog();
-                        }
-                    });
-                }
-            });
+        // Convert to array if needed.
+        const editorsArray = Array.isArray(editors) ? editors : Object.values(editors);
+        if (!editorsArray.length) {
+            return;
         }
+
+        editorsArray.forEach(function(editor) {
+            addTinyMCEButton(editor);
+        });
     }
 
     /**
-     * Setup Atto editor buttons.
+     * Add button to a TinyMCE editor.
+     * @param {Object} editor TinyMCE editor instance.
      */
-    function setupAttoButtons() {
-        const toolbars = document.querySelectorAll('.editor_atto_toolbar');
+    function addTinyMCEButton(editor) {
+        if (!editor || !editor.ui || !editor.ui.registry) {
+            return;
+        }
 
-        toolbars.forEach(function(toolbar) {
-            // Check if button already exists.
-            if (toolbar.querySelector('.atto_textprocessor_button')) {
-                return;
-            }
+        // Check if button already exists.
+        const buttons = editor.ui.registry.getAll().buttons || {};
+        if (buttons.ai_textprocessor) {
+            return;
+        }
 
-            // Find or create button group.
-            let buttonGroup = toolbar.querySelector('.textprocessor_group');
-            if (!buttonGroup) {
-                buttonGroup = document.createElement('div');
-                buttonGroup.className = 'atto_group textprocessor_group';
-                toolbar.appendChild(buttonGroup);
-            }
-
-            // Create button.
-            const button = document.createElement('button');
-            button.className = 'atto_textprocessor_button atto_button';
-            button.title = 'AI TextProcessor';
-            button.innerHTML = '<span class="icon" style="font-size: 16px;">✨</span>';
-            button.type = 'button';
-
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                // Find associated editor.
-                const editorId = toolbar.id.replace('editor_atto_toolbar_', '');
-                const textarea = document.getElementById(editorId);
-                currentEditor = {
-                    type: 'atto',
-                    textarea: textarea,
-                    editorId: editorId,
-                    insertContent: function(html) {
-                        // Try to use Atto's contenteditable div.
-                        const contenteditable = document.querySelector('[contenteditable="true"][id="' + editorId + 'editable"]');
-                        if (contenteditable) {
-                            // Use execCommand for contenteditable.
-                            contenteditable.focus();
-                            document.execCommand('insertHTML', false, html);
-                            return;
-                        }
-                        // Fallback: insert into textarea.
-                        if (textarea) {
-                            const start = textarea.selectionStart;
-                            const end = textarea.selectionEnd;
-                            textarea.value = textarea.value.substring(0, start) + html + textarea.value.substring(end);
-                            textarea.selectionStart = textarea.selectionEnd = start + html.length;
-                            // Trigger change event.
-                            textarea.dispatchEvent(new Event('change', {bubbles: true}));
-                        }
-                    }
-                };
+        // Register button.
+        editor.ui.registry.addButton('ai_textprocessor', {
+            icon: 'format',
+            tooltip: 'AI TextProcessor',
+            onAction: function() {
+                currentEditor = editor;
+                editorType = 'tinymce';
                 openDialog();
-            });
-
-            buttonGroup.appendChild(button);
+            }
         });
+
+        // Register menu item.
+        editor.ui.registry.addMenuItem('ai_textprocessor', {
+            icon: 'format',
+            text: 'AI TextProcessor',
+            onAction: function() {
+                currentEditor = editor;
+                editorType = 'tinymce';
+                openDialog();
+            }
+        });
+    }
+
+    /**
+     * Setup Atto editor integration.
+     */
+    function setupAtto() {
+        // Check if Atto is on the page.
+        if (document.querySelector('.editor_atto_toolbar')) {
+            addAttoButtons();
+        }
+
+        // Use MutationObserver to detect new Atto editors.
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.classList && node.classList.contains('editor_atto_toolbar')) {
+                        addAttoButton(node);
+                    }
+                    // Check children too.
+                    if (node.querySelectorAll) {
+                        const toolbars = node.querySelectorAll('.editor_atto_toolbar');
+                        toolbars.forEach(function(toolbar) {
+                            addAttoButton(toolbar);
+                        });
+                    }
+                });
+            });
+        });
+
+        observer.observe(document.body, {childList: true, subtree: true});
+
+        // Also check after a delay for dynamically loaded editors.
+        setTimeout(function() {
+            addAttoButtons();
+        }, 1000);
+    }
+
+    /**
+     * Add buttons to all Atto toolbars.
+     */
+    function addAttoButtons() {
+        const toolbars = document.querySelectorAll('.editor_atto_toolbar');
+        toolbars.forEach(function(toolbar) {
+            addAttoButton(toolbar);
+        });
+    }
+
+    /**
+     * Add button to an Atto toolbar.
+     * @param {Element} toolbar The toolbar element.
+     */
+    function addAttoButton(toolbar) {
+        // Check if button already exists.
+        if (toolbar.querySelector('.atto_ai_textprocessor_button')) {
+            return;
+        }
+
+        // Find or create a button group.
+        let buttonGroup = toolbar.querySelector('.atto_group.ai_tools');
+        if (!buttonGroup) {
+            buttonGroup = document.createElement('div');
+            buttonGroup.className = 'atto_group ai_tools';
+            toolbar.appendChild(buttonGroup);
+        }
+
+        // Create button.
+        const button = document.createElement('button');
+        button.className = 'atto_button atto_ai_textprocessor_button';
+        button.title = 'AI TextProcessor';
+        button.innerHTML = '<span class="icon" aria-hidden="true">✨</span>';
+        button.type = 'button';
+
+        // Debug: log button creation.
+        console.log('TextProcessor: Creating Atto button for toolbar:', toolbar.id);
+
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            console.log('TextProcessor: Atto button clicked!');
+
+            // Find associated editor.
+            const toolbarId = toolbar.id || '';
+            const editorId = toolbarId.replace('editor_atto_toolbar_', '');
+            const textarea = document.getElementById(editorId);
+
+            console.log('TextProcessor: Editor ID:', editorId, 'Textarea:', textarea);
+
+            // Get context ID from textarea data or fallback to page context.
+            let ctxId = contextId;
+            if (!ctxId && textarea) {
+                // Try to get context from form element.
+                const form = textarea.closest('form');
+                if (form) {
+                    const contextInput = form.querySelector('input[name="contextid"]');
+                    if (contextInput) {
+                        ctxId = parseInt(contextInput.value, 10);
+                    }
+                }
+                // Try to get from M.cfg.
+                if (!ctxId && typeof M !== 'undefined' && M.cfg && M.cfg.contextid) {
+                    ctxId = M.cfg.contextid;
+                }
+            }
+            // Ensure contextId is set.
+            if (!ctxId) {
+                ctxId = 1; // Fallback to system context.
+            }
+            contextId = ctxId;
+
+            console.log('TextProcessor: Using contextId:', contextId);
+
+            currentEditor = {
+                type: 'atto',
+                textarea: textarea,
+                editorId: editorId,
+                toolbar: toolbar
+            };
+            editorType = 'atto';
+            
+            console.log('TextProcessor: Calling openDialog...');
+            openDialog().catch(function(err) {
+                console.error('TextProcessor: openDialog error:', err);
+            });
+        });
+
+        buttonGroup.appendChild(button);
+        console.log('TextProcessor: Atto button appended to toolbar');
     }
 
     /**
      * Open the TextProcessor dialog.
      */
     async function openDialog() {
+        console.log('TextProcessor: openDialog() started');
         try {
-            // Get strings for modal.
+            // Get strings.
+            console.log('TextProcessor: Loading strings...');
             const strings = await Str.get_strings([
                 {key: 'pluginname', component: 'aiplacement_textprocessor'},
                 {key: 'process', component: 'aiplacement_textprocessor'},
-                {key: 'cancel', component: 'core'},
                 {key: 'insert', component: 'aiplacement_textprocessor'}
             ]);
+            console.log('TextProcessor: Strings loaded:', strings);
 
-            // Create modal using new API (Moodle 4.3+).
+            // Build modal body.
+            console.log('TextProcessor: Rendering template with contextId:', contextId);
+            const bodyContent = await Templates.render('aiplacement_textprocessor/editor_dialog', {
+                contextid: contextId
+            });
+            console.log('TextProcessor: Template rendered, body length:', bodyContent.length);
+
+            // Create modal using Moodle 4.3+ API.
+            console.log('TextProcessor: Creating modal...');
             modal = await ModalSaveCancel.create({
                 title: strings[0],
-                body: await getModalBody(),
+                body: bodyContent,
                 buttons: {
-                    save: strings[3],
-                    cancel: strings[2]
-                }
+                    save: strings[2]
+                },
+                large: true
             });
+            console.log('TextProcessor: Modal created');
 
             // Handle save button.
             modal.getRoot().on(ModalEvents.save, function(e) {
@@ -254,41 +372,15 @@ define([
                 processAndInsert();
             });
 
-            // Handle template selection change.
-            modal.getRoot().on('change', '[name="template"]', function(e) {
-                const customPromptField = modal.getRoot().find('[name="customprompt"]');
-                if (e.target.value === 'custom') {
-                    customPromptField.closest('.form-group').show();
-                } else {
-                    customPromptField.closest('.form-group').hide();
-                }
-            });
-
+            // Show modal.
+            console.log('TextProcessor: Showing modal...');
             modal.show();
+            console.log('TextProcessor: Modal shown successfully');
 
         } catch (error) {
+            console.error('TextProcessor: openDialog error:', error);
             Notification.exception(error);
         }
-    }
-
-    /**
-     * Get the modal body content.
-     *
-     * @return {Promise<string>}
-     */
-    async function getModalBody() {
-        const context = {
-            contextid: contextId,
-            templates: [
-                {value: 'document_to_html', name: '📄 Document to HTML', selected: true},
-                {value: 'structure_headings', name: '📑 Structure Headings'},
-                {value: 'definitions_table', name: '📊 Definitions Table'},
-                {value: 'image_centering', name: '🖼️ Image Centering'},
-                {value: 'custom', name: '✏️ Custom'}
-            ]
-        };
-
-        return Templates.render('aiplacement_textprocessor/editor_dialog', context);
     }
 
     /**
@@ -298,8 +390,6 @@ define([
         const root = modal.getRoot();
 
         // Get form values.
-        const template = root.find('[name="template"]').val();
-        const customprompt = root.find('[name="customprompt"]').val();
         const fileInput = root.find('[name="file"]')[0];
         const textInput = root.find('[name="text"]').val();
 
@@ -314,59 +404,60 @@ define([
             // Read file as base64.
             content = await readFileAsBase64(file);
         } else {
-            // Use text input.
             content = textInput;
         }
+
+        console.log('TextProcessor: Content length:', content ? content.length : 0);
+        console.log('TextProcessor: Filename:', filename || 'none');
 
         if (!content || !content.trim()) {
             Notification.alert('Error', 'Please enter text or select a file');
             return;
         }
 
-        // Show loading indicator in modal body.
+        // Show loading.
         const loadingEl = root.find('.textprocessor-loading');
-        if (loadingEl.length) {
-            loadingEl.show();
-        }
+        const processBtn = root.find('[data-action="save"]');
+        const originalBtnText = processBtn.text();
 
-        // Disable save button during processing.
-        const saveBtn = root.find('[data-action="save"]');
-        if (saveBtn.length) {
-            saveBtn.prop('disabled', true);
-        }
+        loadingEl.removeClass('hidden');
+        processBtn.prop('disabled', true).text('Processing...');
 
         try {
+            console.log('TextProcessor: Calling API with contextId:', contextId);
+
             // Call the API.
             const response = await Ajax.call([{
                 methodname: 'aiplacement_textprocessor_process',
                 args: {
                     contextid: contextId,
                     content: content,
-                    template: template,
-                    filename: filename,
-                    customprompt: customprompt
+                    filename: filename
                 }
             }])[0];
 
+            console.log('TextProcessor: API response:', response);
+            console.log('TextProcessor: success:', response.success);
+            console.log('TextProcessor: html length:', response.html ? response.html.length : 0);
+            console.log('TextProcessor: message:', response.message);
+
             if (response.success && response.html) {
                 // Insert into editor.
+                console.log('TextProcessor: Inserting HTML into editor...');
                 insertIntoEditor(response.html);
                 modal.hide();
+                console.log('TextProcessor: Done!');
             } else {
+                console.error('TextProcessor: Processing failed:', response.message);
                 Notification.alert('Error', response.message || 'Processing failed');
             }
 
         } catch (error) {
+            console.error('TextProcessor: API error:', error);
             Notification.exception(error);
         } finally {
-            // Re-enable save button.
-            if (saveBtn.length) {
-                saveBtn.prop('disabled', false);
-            }
-            // Hide loading indicator.
-            if (loadingEl.length) {
-                loadingEl.hide();
-            }
+            processBtn.prop('disabled', false).text(originalBtnText);
+            loadingEl.addClass('hidden');
         }
     }
 
@@ -380,7 +471,7 @@ define([
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = function(e) {
-                // Remove data URL prefix to get pure base64.
+                // Remove data URL prefix.
                 const base64 = e.target.result.split(',')[1];
                 resolve(base64);
             };
@@ -395,36 +486,79 @@ define([
      * @param {string} html
      */
     function insertIntoEditor(html) {
-        if (!currentEditor) {
-            // Fallback: copy to clipboard.
-            navigator.clipboard.writeText(html).then(function() {
-                Notification.alert('Copied', 'HTML copied to clipboard. Paste it in the editor.');
-            });
+        console.log('TextProcessor: insertIntoEditor called');
+        console.log('TextProcessor: editorType:', editorType);
+        console.log('TextProcessor: currentEditor:', currentEditor);
+        console.log('TextProcessor: html preview:', html ? html.substring(0, 200) + '...' : 'empty');
+
+        if (!html) {
+            console.log('TextProcessor: No HTML to insert');
             return;
         }
 
         // TinyMCE.
-        if (currentEditor.insertContent) {
+        if (editorType === 'tinymce' && currentEditor && typeof currentEditor.insertContent === 'function') {
+            console.log('TextProcessor: Using TinyMCE insertContent');
             currentEditor.insertContent(html);
             return;
         }
 
-        // Atto or custom editor with insertContent method.
-        if (typeof currentEditor.insertContent === 'function') {
-            currentEditor.insertContent(html);
-            return;
+        // Atto.
+        if (editorType === 'atto' && currentEditor) {
+            console.log('TextProcessor: Processing Atto editor');
+            const editorId = currentEditor.editorId;
+            console.log('TextProcessor: Looking for editorId:', editorId);
+
+            // Atto creates a contenteditable div with id="id_editornameeditable"
+            // Try multiple selectors.
+            let contenteditable = document.querySelector('[contenteditable="true"][id="' + editorId + 'editable"]');
+            console.log('TextProcessor: contenteditable (by editorId):', contenteditable);
+
+            if (!contenteditable) {
+                // Try finding by pattern: ideditable or id_editornameeditable.
+                contenteditable = document.querySelector('[contenteditable="true"][id$="editable"]');
+                console.log('TextProcessor: contenteditable (any ending with editable):', contenteditable);
+            }
+
+            if (!contenteditable) {
+                // Find the contenteditable inside Atto editor wrapper.
+                const attoWrapper = document.querySelector('.editor_atto_content');
+                if (attoWrapper) {
+                    contenteditable = attoWrapper.querySelector('[contenteditable="true"]');
+                }
+                console.log('TextProcessor: contenteditable (in atto wrapper):', contenteditable);
+            }
+
+            if (contenteditable) {
+                console.log('TextProcessor: Found contenteditable, inserting HTML');
+                contenteditable.focus();
+                document.execCommand('insertHTML', false, html);
+                console.log('TextProcessor: HTML inserted via execCommand');
+                return;
+            }
+
+            // Fallback: try to find the original textarea.
+            const textarea = document.getElementById(editorId);
+            if (textarea && textarea.tagName === 'TEXTAREA') {
+                console.log('TextProcessor: Using textarea fallback');
+                const value = textarea.value || '';
+                const start = textarea.selectionStart || 0;
+                const end = textarea.selectionEnd || start;
+                textarea.value = value.substring(0, start) + html + value.substring(end);
+                textarea.selectionStart = textarea.selectionEnd = start + html.length;
+                textarea.dispatchEvent(new Event('change', {bubbles: true}));
+                console.log('TextProcessor: HTML inserted into textarea');
+                return;
+            }
+
+            console.log('TextProcessor: No Atto insertion method found');
         }
 
-        // Fallback for textarea.
-        if (currentEditor.textarea) {
-            const textarea = currentEditor.textarea;
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            textarea.value = textarea.value.substring(0, start) + html + textarea.value.substring(end);
-            textarea.selectionStart = textarea.selectionEnd = start + html.length;
-            // Trigger change event.
-            textarea.dispatchEvent(new Event('change', {bubbles: true}));
-        }
+        // Final fallback: copy to clipboard.
+        console.log('TextProcessor: Using clipboard fallback');
+        navigator.clipboard.writeText(html).then(function() {
+            Notification.alert('Copied', 'HTML copied to clipboard. Paste it in the editor.');
+        });
     }
 
     /**
@@ -432,76 +566,25 @@ define([
      */
     return {
         /**
-         * Initialize for TinyMCE.
-         *
-         * @param {Object} editor TinyMCE editor instance
-         * @param {Number} contextid Context ID
-         */
-        initForTinyMCE: function(editor, contextid) {
-            currentEditor = editor;
-            contextId = contextid;
-            editor.ui.registry.addButton('aiplacement_textprocessor', {
-                icon: 'format',
-                tooltip: 'AI TextProcessor',
-                onAction: function() {
-                    openDialog();
-                }
-            });
-        },
-
-        /**
-         * Initialize for Atto.
-         *
-         * @param {Object} editor Atto editor instance
-         * @param {Number} contextid Context ID
-         */
-        initForAtto: function(editor, contextid) {
-            currentEditor = editor;
-            contextId = contextid;
-        },
-
-        /**
-         * Open dialog manually (for testing or custom integration).
-         *
-         * @param {Object} editor Editor instance
-         * @param {Number} contextid Context ID
-         */
-        openDialog: function(editor, contextid) {
-            currentEditor = editor;
-            contextId = contextid;
-            openDialog();
-        },
-
-        /**
-         * Process text and return HTML (without inserting).
-         *
-         * @param {Number} contextid Context ID
-         * @param {string} content Text content
-         * @param {string} template Template name
-         * @param {string} filename Filename (if file)
-         * @param {string} customprompt Custom prompt
-         * @return {Promise<Object>}
-         */
-        processText: async function(contextid, content, template, filename, customprompt) {
-            return Ajax.call([{
-                methodname: 'aiplacement_textprocessor_process',
-                args: {
-                    contextid: contextid,
-                    content: content,
-                    template: template,
-                    filename: filename || '',
-                    customprompt: customprompt || ''
-                }
-            }])[0];
-        },
-
-        /**
          * Initialize - called from PHP hook.
          *
-         * @param {Number} contextid Context ID
+         * @param {Number} ctxid Context ID
          */
-        init: function(contextid) {
-            init(contextid);
+        init: function(ctxid) {
+            init(ctxid);
+        },
+
+        /**
+         * Open dialog manually (for external use).
+         *
+         * @param {Object} editor Editor instance
+         * @param {Number} ctxid Context ID
+         */
+        openDialogExternal: function(editor, ctxid) {
+            currentEditor = editor;
+            contextId = ctxid;
+            editorType = editor && typeof editor.insertContent === 'function' ? 'tinymce' : 'atto';
+            openDialog();
         }
     };
 });

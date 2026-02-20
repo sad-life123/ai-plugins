@@ -25,16 +25,11 @@ use core_external\external_value;
 /**
  * External API for text processing - converts text/documents to structured HTML.
  *
- * Supports:
- * - Plain text input
- * - File input (PDF, DOCX, DOC, TXT) via base64 - NOT stored on server
- *
- * Templates:
- * - document_to_html  - Full document structure with headings, paragraphs, lists
- * - structure_headings - Extract and format heading hierarchy
- * - definitions_table  - Format definitions/terms as HTML table
- * - image_centering    - Add centered image markup
- * - custom             - Custom prompt from user
+ * Single unified action: intelligently formats ALL content elements:
+ * - Headings, paragraphs, lists
+ * - Tables, definitions
+ * - Code blocks, quotes
+ * - Images with centering
  *
  * @package    aiplacement_textprocessor
  * @copyright  2025
@@ -59,21 +54,9 @@ class process extends external_api {
                 'Text content or base64 encoded file content',
                 VALUE_REQUIRED,
             ),
-            'template' => new external_value(
-                PARAM_ALPHANUMEXT,
-                'Processing template: document_to_html, structure_headings, definitions_table, image_centering, custom',
-                VALUE_DEFAULT,
-                'document_to_html',
-            ),
             'filename' => new external_value(
                 PARAM_FILE,
-                'Original filename if content is a file (determines file type)',
-                VALUE_DEFAULT,
-                '',
-            ),
-            'customprompt' => new external_value(
-                PARAM_RAW,
-                'Custom prompt for template=custom',
+                'Original filename if content is a file',
                 VALUE_DEFAULT,
                 '',
             ),
@@ -85,37 +68,25 @@ class process extends external_api {
      *
      * @param int $contextid The context ID.
      * @param string $content Text or base64 file content.
-     * @param string $template Processing template.
      * @param string $filename Original filename (if file).
-     * @param string $customprompt Custom prompt (if template=custom).
      * @return array The processed HTML content.
      */
     public static function execute(
         int $contextid,
         string $content,
-        string $template = 'document_to_html',
-        string $filename = '',
-        string $customprompt = ''
+        string $filename = ''
     ): array {
         global $USER;
 
-        // DEBUG: log incoming request.
-        debugging('[TextProcessor] process::execute called. template=' . $template .
-            ', filename=' . $filename . ', contextid=' . $contextid, DEBUG_DEVELOPER);
-
         // Parameter validation.
         [
-            'contextid'    => $contextid,
-            'content'      => $content,
-            'template'     => $template,
-            'filename'     => $filename,
-            'customprompt' => $customprompt,
+            'contextid' => $contextid,
+            'content'   => $content,
+            'filename'  => $filename,
         ] = self::validate_parameters(self::execute_parameters(), [
-            'contextid'    => $contextid,
-            'content'      => $content,
-            'template'     => $template,
-            'filename'     => $filename,
-            'customprompt' => $customprompt,
+            'contextid' => $contextid,
+            'content'   => $content,
+            'filename'  => $filename,
         ]);
 
         // Context validation and permission check.
@@ -123,31 +94,31 @@ class process extends external_api {
         self::validate_context($context);
 
         if (!utils::is_textprocessor_placement_action_available($context, 'generate_text', \core_ai\aiactions\generate_text::class)) {
-            throw new \moodle_exception('notavailable', 'aiplacement_textprocessor');
+            return [
+                'success' => false,
+                'html'    => '',
+                'message' => get_string('notavailable', 'aiplacement_textprocessor'),
+            ];
         }
 
         // Step 1: Extract text from file if filename provided.
         $textcontent = $content;
         if (!empty($filename) && file_extractor::is_supported($filename)) {
-            debugging('[TextProcessor] Extracting text from file: ' . $filename, DEBUG_DEVELOPER);
             $textcontent = file_extractor::extract_from_base64($content, $filename);
-            debugging('[TextProcessor] Extracted ' . strlen($textcontent) . ' chars from file', DEBUG_DEVELOPER);
         }
 
         if (empty(trim($textcontent))) {
             return [
-                'success'  => false,
-                'html'     => '',
-                'message'  => get_string('error_empty_content', 'aiplacement_textprocessor'),
+                'success' => false,
+                'html'    => '',
+                'message' => get_string('error_empty_content', 'aiplacement_textprocessor'),
             ];
         }
 
-        // Step 2: Build prompt based on template.
-        $prompt = self::build_prompt($template, $textcontent, $customprompt);
+        // Step 2: Build unified prompt.
+        $prompt = self::build_unified_prompt($textcontent);
 
-        debugging('[TextProcessor] Sending to AI, prompt length=' . strlen($prompt), DEBUG_DEVELOPER);
-
-        // Step 3: Send to AI manager (uses configured provider - ollama).
+        // Step 3: Send to AI manager.
         $action = new \core_ai\aiactions\generate_text(
             contextid: $contextid,
             userid: $USER->id,
@@ -158,11 +129,10 @@ class process extends external_api {
         $response = $manager->process_action($action);
 
         if (!$response->get_success()) {
-            debugging('[TextProcessor] AI error: ' . $response->get_errormessage(), DEBUG_DEVELOPER);
             return [
-                'success'  => false,
-                'html'     => '',
-                'message'  => $response->get_errormessage() ?: $response->get_error(),
+                'success' => false,
+                'html'    => '',
+                'message' => $response->get_errormessage() ?: 'AI processing failed',
             ];
         }
 
@@ -170,8 +140,6 @@ class process extends external_api {
 
         // Step 4: Clean up the generated HTML.
         $html = self::clean_html_output($generatedcontent);
-
-        debugging('[TextProcessor] Success, html length=' . strlen($html), DEBUG_DEVELOPER);
 
         return [
             'success' => true,
@@ -181,119 +149,42 @@ class process extends external_api {
     }
 
     /**
-     * Build the AI prompt based on template.
+     * Build the unified AI prompt for comprehensive document formatting.
      *
-     * @param string $template Template name
      * @param string $text Source text
-     * @param string $customprompt Custom prompt (for template=custom)
      * @return string Full prompt for AI
      */
-    private static function build_prompt(string $template, string $text, string $customprompt = ''): string {
-        // Check for admin-defined custom prompt override.
-        $adminprompt = get_config('aiplacement_textprocessor', 'custom_prompt');
+    private static function build_unified_prompt(string $text): string {
+        // Use clear instruction format with the text at the beginning for better AI focus.
+        $prompt = "Convert the following text to clean semantic HTML. Output ONLY the HTML, nothing else.
 
-        $base_instructions = "You are an HTML formatter. Your task is to convert the provided text into clean, semantic HTML.
-IMPORTANT RULES:
-- Return ONLY valid HTML markup, no explanations, no markdown code blocks
-- Do NOT wrap output in ```html or ``` tags
-- Use semantic HTML5 elements
-- All images should be centered: <figure class=\"text-center\"><img src=\"#\" alt=\"description\" class=\"img-fluid\"></figure>
-- Tables should have class=\"table table-bordered\"
-- Use Bootstrap-compatible classes
-- Preserve the original language of the text";
+TEXT TO FORMAT:
+{$text}
 
-        switch ($template) {
-            case 'document_to_html':
-                $prompt = $base_instructions . "
+FORMATTING INSTRUCTIONS:
+- Return ONLY HTML markup (no explanations, no markdown, no code blocks)
+- Preserve the original language
+- Use Bootstrap 5 classes where appropriate
 
-TASK: Convert the following document text into a fully structured HTML document fragment.
-Structure requirements:
-- Use <h1> for main title, <h2> for sections, <h3> for subsections
-- Use <p> for paragraphs
-- Use <ul>/<ol> with <li> for lists
-- Use <strong> for important terms, <em> for emphasis
-- Use <blockquote> for quotes
-- Use <table class=\"table table-bordered\"> for tabular data
-- Center images with <figure class=\"text-center\">
-- Use <hr> for section separators
+Apply these rules:
+1. Headings: Main title <h1>, sections <h2>, subsections <h3>-<h6>
+2. Paragraphs: <p> with <strong> and <em> for emphasis
+3. Lists: <ol>/<ul> with <li>, definitions use <dl><dt><dd>
+4. Tables: <table class=\"table table-bordered\"> with <thead><tbody>
+5. Code: <pre><code> for blocks, <code> for inline
+6. Quotes: <blockquote class=\"blockquote\">
+7. Images: <figure class=\"text-center\"><img class=\"img-fluid\">
+8. Links: <a href=\"URL\">text</a>
+9. Notes: <div class=\"alert alert-info\">
+10. Warnings: <div class=\"alert alert-warning\">
 
-TEXT TO CONVERT:
-{$text}";
-                break;
-
-            case 'structure_headings':
-                $prompt = $base_instructions . "
-
-TASK: Extract and format the heading structure from the following text.
-Requirements:
-- Create a hierarchical heading structure using <h1>, <h2>, <h3>, <h4>
-- Under each heading, include a brief summary paragraph <p>
-- Create a table of contents at the top: <nav><ul class=\"list-unstyled\">...</ul></nav>
-- Use anchor links: <h2 id=\"section-1\">...</h2>
-
-TEXT TO PROCESS:
-{$text}";
-                break;
-
-            case 'definitions_table':
-                $prompt = $base_instructions . "
-
-TASK: Extract all definitions, terms, and key concepts from the text and format them as an HTML table.
-Requirements:
-- Create a table: <table class=\"table table-bordered table-striped\">
-- Columns: Term | Definition | Example (if available)
-- Add <thead> with column headers
-- Add <tbody> with data rows
-- If no definitions found, create a glossary from key terms in the text
-- Sort terms alphabetically
-
-TEXT TO PROCESS:
-{$text}";
-                break;
-
-            case 'image_centering':
-                $prompt = $base_instructions . "
-
-TASK: Process the following HTML/text and ensure all images are properly centered and formatted.
-Requirements:
-- Wrap each image in: <figure class=\"text-center my-3\"><img src=\"...\" alt=\"...\" class=\"img-fluid rounded\"><figcaption class=\"text-muted\">...</figcaption></figure>
-- If text mentions images/figures without actual img tags, create placeholder markup
-- Keep all other content as-is, just fix image formatting
-
-TEXT TO PROCESS:
-{$text}";
-                break;
-
-            case 'custom':
-                if (!empty($customprompt)) {
-                    $prompt = $base_instructions . "\n\nCUSTOM TASK: " . $customprompt . "\n\nTEXT TO PROCESS:\n{$text}";
-                } elseif (!empty($adminprompt)) {
-                    $prompt = $base_instructions . "\n\nTASK: " . $adminprompt . "\n\nTEXT TO PROCESS:\n{$text}";
-                } else {
-                    $prompt = $base_instructions . "
-
-TASK: Format the following text as clean, well-structured HTML.
-
-TEXT TO PROCESS:
-{$text}";
-                }
-                break;
-
-            default:
-                $prompt = $base_instructions . "
-
-TASK: Convert the following text to structured HTML.
-
-TEXT:
-{$text}";
-        }
+HTML OUTPUT:";
 
         return $prompt;
     }
 
     /**
      * Clean up AI-generated HTML output.
-     * Remove markdown code blocks, fix common issues.
      *
      * @param string $html Raw AI output
      * @return string Cleaned HTML
